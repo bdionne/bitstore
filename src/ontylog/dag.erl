@@ -12,51 +12,33 @@
 %%
 %%
 %%
--export([init/0, delete/0, insert_links/2, all_arrows/0, 
-         get_source/1, get_relation/1, get_target/1,
-         get_trans_closure/3, load_dag/1, parent_relation/0]).
+-export([insert_arrows/2, 
+	 load_dag/1, parent_relation/0]).
 
--include_lib("stdlib/include/qlc.hrl").
--include("dag.hrl").
+-import(triple_store, [insert_tuple/3]).
 
-init() ->
-    mnesia:create_table(dag,
-                        [{disc_copies, [node()]}, {type, bag}, {attributes, record_info(fields, dag)}]).
-
-delete() ->
-    mnesia:del_table_copy(dag, node()).
 %%
 %%
 %% insert links into a graph of nodes where M is the number of distinct relations
 %% to use and N is the number of nodes
 %%
 %%
-insert_links(M, N) ->
+insert_arrows(M, N) ->
     ListOfRelations = create_list_of_ids(M),
     Nodes = create_list_of_ids(N),
-    insert_links(ListOfRelations, Nodes, N).
+    insert_arrows(ListOfRelations, Nodes, N).
 %%
 %%
-insert_links(Relations, Nodes, N) when N > 0 ->
+insert_arrows(Relations, Nodes, N) when N > 0 ->
     RelNo = length(Relations),
     NodeNo = length(Nodes),    
-    insert_link(lists:nth(random:uniform(NodeNo),Nodes),
+    insert_tuple(lists:nth(random:uniform(NodeNo),Nodes),
 		lists:nth(random:uniform(RelNo), Relations),
 		lists:nth(random:uniform(NodeNo),Nodes)),
-    insert_links(Relations, Nodes, N-1);
+    insert_arrows(Relations, Nodes, N-1);
 %%
-insert_links(_, _, 0) ->
+insert_arrows(_, _, 0) ->
     ok.
-%%
-%%
-%%
-insert_link(Source, Link, Target) ->
-    mnesia:transaction(fun() ->
-		  mnesia:write(#dag{source = Source,
-				arrow = Link,
-				target = Target})
-	  end).
-%%    
 %%
 create_list_of_ids(M) when M > 0 ->
     [couch_uuids:new() | create_list_of_ids(M-1)];
@@ -64,72 +46,6 @@ create_list_of_ids(M) when M > 0 ->
 create_list_of_ids(0) ->
     [].
 
-all_arrows() ->
-    F = fun() ->
-                Q = qlc:q([Edge#dag.arrow || Edge <- mnesia:table(dag)], {unique, true}),
-                qlc:e(Q)
-        end,
-    element(2, mnesia:transaction(F)).
-
-get_projection(Match, Column) ->
-    Q = case Column of
-            arrow -> qlc:q([{Edge#dag.source, Edge#dag.target} || Edge <- mnesia:table(dag),
-                                                                     Edge#dag.arrow == Match]);
-            source -> qlc:q([{Edge#dag.arrow, Edge#dag.target} || Edge <- mnesia:table(dag),
-                                                                     Edge#dag.source == Match]);
-            target -> qlc:q([{Edge#dag.source, Edge#dag.arrow} || Edge <- mnesia:table(dag),
-                                                                Edge#dag.target == Match])
-        end,
-    F = fun() ->
-                qlc:e(Q)
-        end,
-    element(2, mnesia:transaction(F)).
-                
-
-get_relation(Relation) ->
-    get_projection(Relation, arrow).get_source(Source) ->
-    get_projection(Source, source).
-
-get_target(Target) ->
-    get_projection(Target, target).
-
-get_trans_closure(Source, Arrow, []) ->
-    F = fun() ->
-                Q = qlc:q([Edge#dag.target || Edge <- mnesia:table(dag),
-                                              Edge#dag.source == Source,
-                                              Edge#dag.arrow == Arrow]),
-                qlc:e(Q)
-        end,
-    Targets = element(2, mnesia:transaction(F)),
-    case Targets of
-        [] -> [];
-        _ -> lists:foldl(fun(Elem, Acc) ->
-                                   get_trans_closure1(Elem,Arrow,Acc)
-                           end, [], Targets)
-    end.
-    
-
-get_trans_closure1(Source, Arrow, VisitedNodes) ->
-
-    AlreadySeen = lists:member(Source, VisitedNodes),
-
-    case AlreadySeen of 
-        true -> VisitedNodes;
-        _ -> NewVisitedNodes = [Source | VisitedNodes],
-             F = fun() ->
-                         Q = qlc:q([Edge#dag.target || Edge <- mnesia:table(dag),
-                                                       Edge#dag.source == Source,
-                                                       Edge#dag.arrow == Arrow]),
-                         qlc:e(Q)
-                 end,
-             Targets = element(2, mnesia:transaction(F)),
-             case Targets of
-                 [] -> NewVisitedNodes;
-                 _ -> lists:foldl(fun(Elem, Acc) ->
-                                        get_trans_closure1(Elem,Arrow,Acc)
-                                end, NewVisitedNodes, Targets)
-             end
-    end.
 %% some helper utilities for building various graphs
 parent_relation() ->
     <<"0000000001">>.
@@ -157,7 +73,7 @@ build_arcs(NodeList) ->
                                   tl(NodeList))).
 
 connect_node(SubId, [H | T]) ->
-    insert_link(SubId, parent_relation(), H),
+    insert_tuple(SubId, parent_relation(), H),
     connect_node(SubId, T);
 connect_node(_, []) ->
     ok.
