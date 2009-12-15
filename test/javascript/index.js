@@ -15,10 +15,11 @@ couchTests.index = function(debug) {
   var result = JSON.parse(CouchDB.request("GET", "/").responseText);
   T(result.couchdb == "Welcome");
 
-  var db = new CouchDB("test_search", {"X-Couch-Full-Commit":"false"});
+  var db = new CouchDB("test_search-idx", {"X-Couch-Full-Commit":"true"});
+  db.deleteDb();
+  db = new CouchDB("test_search", {"X-Couch-Full-Commit":"true"});
   db.deleteDb();
   db.createDb();
-
   var doc = {foo : "foo"};
   var result = db.save(doc);
 
@@ -29,5 +30,14 @@ couchTests.index = function(debug) {
 
   T(db.index().ok);
   T(db.last_req.status == 202);
+  
+  result = db.searchDocs({word : "foo"});
+  T(db.last_req.status == 200);
+  T(result.total_rows == result.rows.length);
+
+  T(db.index({stop:"true"}).ok);
+  T(db.last_req.status == 202);
+  
+			 
 
 };
