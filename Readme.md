@@ -32,7 +32,7 @@ view in terms of system design makes handling these other, arguably
 more pedestrian concerns, much more difficult.
 
 This prototype attempts to take a bottoms up view of terminology by
-treating a cocnept as a document. By document we mean a collection of
+treating a concept as a document. By document we mean a collection of
 name value pairs that is uniquely identified, a couchdb document.
 
 ### Graphs and Names
