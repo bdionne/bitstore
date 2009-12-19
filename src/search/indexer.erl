@@ -12,10 +12,12 @@
 -module(indexer).
 -author('Joe Armstrong').
 %%
-%% this is changed considerably form the book. It's been made into a gen_server
+%% this is changed considerably from the book. It's been made into a gen_server
 %% that maintains a hash of indexer_servers, one for each couchdb being indexed
 %% or queried. The indexers work in batch as well as incrmental mode, requiring
 %% two types of map/reduce functions
+%%
+%%% Copyright (C) 2009   Dionne Associates, LLC.
 -author('Bob Dionne').
 
 -export([start_link/0, stop/1, start/1, search/2]).

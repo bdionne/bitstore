@@ -214,10 +214,6 @@ read_last_seq(DbName) ->
 read_doc_count(DbName) ->
     {ok, Doc} = lookup_doc(<<"db_stats">>, DbName),
     proplists:get_value(<<"doc_count">>,element(1,Doc)).
-    
-    
- 
-
 
 lookup_indices(Word, DbName) ->
     case lookup_doc(list_to_binary(Word), DbName) of
