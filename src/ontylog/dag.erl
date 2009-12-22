@@ -12,49 +12,19 @@
 %%
 %%
 %%
--export([insert_arrows/2, 
-	 load_dag/1, parent_relation/0]).
+-export([load_dag/1]).
 
 -import(triple_store, [insert_tuple/3]).
 
-%%
-%%
-%% insert links into a graph of nodes where M is the number of distinct relations
-%% to use and N is the number of nodes
-%%
-%%
-insert_arrows(M, N) ->
-    ListOfRelations = create_list_of_ids(M),
-    Nodes = create_list_of_ids(N),
-    insert_arrows(ListOfRelations, Nodes, N).
-%%
-%%
-insert_arrows(Relations, Nodes, N) when N > 0 ->
-    RelNo = length(Relations),
-    NodeNo = length(Nodes),    
-    insert_tuple(lists:nth(random:uniform(NodeNo),Nodes),
-		lists:nth(random:uniform(RelNo), Relations),
-		lists:nth(random:uniform(NodeNo),Nodes)),
-    insert_arrows(Relations, Nodes, N-1);
-%%
-insert_arrows(_, _, 0) ->
-    ok.
-%%
-create_list_of_ids(M) when M > 0 ->
-    [couch_uuids:new() | create_list_of_ids(M-1)];
-%%
-create_list_of_ids(0) ->
-    [].
 
-%% some helper utilities for building various graphs
-parent_relation() ->
-    <<"0000000001">>.
-
-getAtoms([]) -> [];
-getAtoms([H|T]) -> case H of
-                        {atom,_, A} -> [A | getAtoms(T)];
-                        _ -> getAtoms(T)
-                    end.
+getTriple(Triple) ->
+    case Triple of
+        [{atom,_,Subject},
+         {atom,_,Predicate},
+         {atom,_,Object}] ->
+            [Subject,Predicate,Object];
+        _ -> []
+    end.
 
 assign_ids([H | T], NodeDict, NodePairs) ->
     case dict:find(H, NodeDict) of
@@ -67,24 +37,22 @@ assign_ids([H | T], NodeDict, NodePairs) ->
 assign_ids([], NodeDict, NodePairs) ->
     {lists:reverse(NodePairs), NodeDict}.
 
-build_arcs(NodeList) ->
-    {_, SubId} = hd(NodeList),
-    connect_node(SubId, lists:map(fun(Pair) -> element(2, Pair) end,
-                                  tl(NodeList))).
-
-connect_node(SubId, [H | T]) ->
-    insert_tuple(SubId, parent_relation(), H),
-    connect_node(SubId, T);
-connect_node(_, []) ->
-    ok.
+store_triple(TripNodeIds) ->
+    case TripNodeIds of
+        [{_, SubId},
+         {_, PredId},
+         {_, ObjId}] ->
+            insert_tuple(SubId, PredId, ObjId);
+        _ -> []
+    end.
 
 build_dag(File, NodeDict) ->
     case io:get_line(File,'') of
         eof -> NodeDict;
         LS -> 
-            Atoms = getAtoms(element(2,erl_scan:string(LS))),
-            {Nodes, NewNodeDict} = assign_ids(Atoms, NodeDict, []),
-            build_arcs(Nodes),
+            Triple = getTriple(element(2,erl_scan:string(LS))),
+            {TripleNodeIdPairs, NewNodeDict} = assign_ids(Triple, NodeDict, []),
+            store_triple(TripleNodeIdPairs),
             build_dag(File, NewNodeDict)
     end.
 

@@ -20,7 +20,7 @@
 -include("triple.hrl").
 
 init() ->
-    mnesia:create_table(triples,
+    mnesia:create_table(triple,
                         [{disc_copies,
 			  [node()]},
 			 {type, bag},
@@ -28,7 +28,7 @@ init() ->
 			  record_info(fields, triple)}]).
 
 delete() ->
-    mnesia:del_table_copy(triples, node()).
+    mnesia:del_table_copy(triple, node()).
 
 insert_tuple(Source, Arrow, Target) ->
     mnesia:transaction(fun() ->
@@ -40,7 +40,7 @@ insert_tuple(Source, Arrow, Target) ->
 all_arrows() ->
     F = fun() ->
                 Q = qlc:q([Edge#triple.arrow 
-			   || Edge <- mnesia:table(dag)], {unique, true}),
+			   || Edge <- mnesia:table(triple)], {unique, true}),
                 qlc:e(Q)
         end,
     element(2, mnesia:transaction(F)).
@@ -49,15 +49,15 @@ get_projection(Match, Column) ->
     Q = case Column of
             arrow -> 
 		qlc:q([{Edge#triple.source, Edge#triple.target}
-		       || Edge <- mnesia:table(dag),
+		       || Edge <- mnesia:table(triple),
 			  Edge#triple.arrow == Match]);
             source ->
 		qlc:q([{Edge#triple.arrow, Edge#triple.target}
-		       || Edge <- mnesia:table(dag),
+		       || Edge <- mnesia:table(triple),
 			  Edge#triple.source == Match]);
             target -> 
 		qlc:q([{Edge#triple.source, Edge#triple.arrow}
-		       || Edge <- mnesia:table(dag),
+		       || Edge <- mnesia:table(triple),
 			  Edge#triple.target == Match])
         end,
     F = fun() ->
@@ -75,44 +75,25 @@ get_source(Source) ->
 get_target(Target) ->
     get_projection(Target, target).
 
-get_trans_closure(Source, Arrow, []) ->
+get_trans_closure(Source, Arrow, VisitedNodes) ->
+
     F = fun() ->
                 Q = qlc:q([Edge#triple.target
-			   || Edge <- mnesia:table(dag),
-			      Edge#triple.source == Source,
+                           || Edge <- mnesia:table(triple),
+                              Edge#triple.source == Source,
                               Edge#triple.arrow == Arrow]),
                 qlc:e(Q)
         end,
     Targets = element(2, mnesia:transaction(F)),
     case Targets of
-        [] -> [];
+        [] -> VisitedNodes;
         _ -> lists:foldl(fun(Elem, Acc) ->
-                                   get_trans_closure1(Elem,Arrow,Acc)
-                           end, [], Targets)
-    end.
-    
-
-get_trans_closure1(Source, Arrow, VisitedNodes) ->
-
-    AlreadySeen = lists:member(Source, VisitedNodes),
-
-    case AlreadySeen of 
-        true -> VisitedNodes;
-        _ -> NewVisitedNodes = [Source | VisitedNodes],
-             F = fun() ->
-                         Q = qlc:q([Edge#triple.target
-				    || Edge <- mnesia:table(dag),
-				       Edge#triple.source == Source,
-				       Edge#triple.arrow == Arrow]),
-                         qlc:e(Q)
-                 end,
-             Targets = element(2, mnesia:transaction(F)),
-             case Targets of
-                 [] -> NewVisitedNodes;
-                 _ -> lists:foldl(fun(Elem, Acc) ->
-                                        get_trans_closure1(Elem,Arrow,Acc)
-                                end, NewVisitedNodes, Targets)
-             end
+                                 AlreadyVisited = lists:member(Elem, VisitedNodes),
+                                 case AlreadyVisited of
+                                     true -> VisitedNodes;
+                                     false -> get_trans_closure(Elem,Arrow,[Elem | Acc])
+                                 end
+                         end, VisitedNodes, Targets)
     end.
     
 
