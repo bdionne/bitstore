@@ -14,6 +14,7 @@
 %%
 -export([init/0, delete/0, insert_tuple/3, all_arrows/0, 
          get_source/1, get_relation/1, get_target/1,
+         get_column/3,
          get_trans_closure/3]).
 
 -include_lib("stdlib/include/qlc.hrl").
@@ -64,6 +65,29 @@ get_projection(Match, Column) ->
                 qlc:e(Q)
         end,
     element(2, mnesia:transaction(F)).
+
+get_column(Match1, Match2, Column) ->
+    Q = case Column of
+            arrow ->
+                qlc:q([{Edge#triple.arrow} ||
+                          Edge <- mnesia:table(triple),
+                          Edge#triple.source == Match1,
+                          Edge#triple.target == Match2]);
+            source ->
+                qlc:q([{Edge#triple.source} ||
+                          Edge <- mnesia:table(triple),
+                          Edge#triple.arrow == Match1,
+                          Edge#triple.target == Match2]);
+            target ->
+                qlc:q([{Edge#triple.target} ||
+                          Edge <- mnesia:table(triple),
+                          Edge#triple.source == Match1,
+                          Edge#triple.arrow == Match2])
+        end,
+    F = fun() ->
+                qlc:e(Q)
+        end,
+    element(2, mnesia:transaction(F)).
                 
 
 get_relation(Relation) ->
@@ -76,7 +100,6 @@ get_target(Target) ->
     get_projection(Target, target).
 
 get_trans_closure(Source, Arrow, VisitedNodes) ->
-
     F = fun() ->
                 Q = qlc:q([Edge#triple.target
                            || Edge <- mnesia:table(triple),
