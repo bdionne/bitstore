@@ -1,4 +1,4 @@
-## bitstore -- A document based approach to ontology development
+## Bitstore -- A document based approach to ontology development
 
 The goal of bitstore is a minimal environment for ontology development
 that is document centered, implemented as a
