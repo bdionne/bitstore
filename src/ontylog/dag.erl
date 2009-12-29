@@ -52,12 +52,13 @@ dag_node(Id, Dict) ->
 
 build_dag() ->
     Nodes = dict:new(),
-    lists:map(fun({Source,Arrow,Target}) ->
-                      SourcePid = find_or_create_pid(Source,Nodes),
-                      TargetPid = find_or_create_pid(Target,Nodes),
+    lists:foldl(fun({Source,Arrow,Target}, Acc) ->
+                      {SourcePid, NewAcc1} = find_or_create_pid(Source,Acc),
+                      {TargetPid, NewAcc2} = find_or_create_pid(Target,NewAcc1),
                       SourcePid ! {add, Arrow, TargetPid},
-                      SourcePid
-              end, all_triples()).
+                      io:format("size of nodes is ~p ~n",[dict:size(NewAcc2)]),
+                      NewAcc2
+              end, Nodes, all_triples()).
                       
 
 %%====================================================================
@@ -66,7 +67,12 @@ build_dag() ->
 find_or_create_pid(Id,Nodes) ->
     case dict:find(Id,Nodes) of
         {ok, Pid} ->
-            Pid;
-        error -> spawn(?MODULE, dag_node, [Id, dict:new()])
+            io:format("found id ~n",[]),
+            {Pid, Nodes};
+        error ->
+            io:format("spawning node for ~p ~n",[Id]),
+            Pid = spawn(?MODULE, dag_node, [Id, dict:new()]),
+            NewNodes = dict:store(Id, Pid, Nodes),
+            {Pid, NewNodes}            
     end.
     
