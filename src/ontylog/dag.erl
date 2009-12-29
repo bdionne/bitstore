@@ -25,10 +25,10 @@
 -author('dionne@dionne-associates.com').
 
 %% API
--export([build_dag/0,
+-export([build_dag/1,
         dag_node/2]).
 
--import(triple_store, [all_triples/0]).
+-import(triple_store, [all_triples/1]).
 
 %%====================================================================
 %% API
@@ -50,7 +50,7 @@ dag_node(Id, Dict) ->
                   dag_node(Id,Dict)
     end.
 
-build_dag() ->
+build_dag(Table) ->
     Nodes = dict:new(),
     lists:foldl(fun({Source,Arrow,Target}, Acc) ->
                       {SourcePid, NewAcc1} = find_or_create_pid(Source,Acc),
@@ -58,7 +58,7 @@ build_dag() ->
                       SourcePid ! {add, Arrow, TargetPid},
                       io:format("size of nodes is ~p ~n",[dict:size(NewAcc2)]),
                       NewAcc2
-              end, Nodes, all_triples()).
+              end, Nodes, all_triples(Table)).
                       
 
 %%====================================================================

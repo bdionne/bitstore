@@ -28,7 +28,7 @@
 %%
 -export([load_dag/1]).
 
--import(triple_store, [insert_tuple/3]).
+-import(triple_store, [insert_tuple/4, init/1]).
 
 getTriple(Triple) ->
     case Triple of
@@ -50,23 +50,23 @@ assign_ids([H | T], NodeDict, NodePairs) ->
 assign_ids([], NodeDict, NodePairs) ->
     {lists:reverse(NodePairs), NodeDict}.
 
-store_triple(TripNodeIds) ->
+store_triple(TripNodeIds,Table) ->
     case TripNodeIds of
         [{_, SubId},
          {_, PredId},
          {_, ObjId}] ->
-            insert_tuple(SubId, PredId, ObjId);
+            insert_tuple(SubId, PredId, ObjId, Table);
         _ -> []
     end.
 
-build_triples(File, NodeDict) ->
+build_triples(File, NodeDict, Table) ->
     case io:get_line(File,'') of
         eof -> NodeDict;
         LS -> 
             Triple = getTriple(element(2,erl_scan:string(LS))),
             {TripleNodeIdPairs, NewNodeDict} = assign_ids(Triple, NodeDict, []),
-            store_triple(TripleNodeIdPairs),
-            build_triples(File, NewNodeDict)
+            store_triple(TripleNodeIdPairs, Table),
+            build_triples(File, NewNodeDict, Table)
     end.
 
 %% load_dag takes a text file, each line of which specifies a source/arrow/target
@@ -75,7 +75,10 @@ build_triples(File, NodeDict) ->
 %% 
 load_dag(Dag) ->
     io:format("Loading Dag: ",[]),
-    NodeDict = build_triples(element(2,file:open(Dag, [read])), dict:new()),
+    File = element(2,file:open(Dag, [read])),
+    {atom, 1, Table} = hd(element(2, erl_scan:string(io:get_line(File,'')))),
+    init(Table),
+    NodeDict = build_triples(File,dict:new(),Table),
     io:format("Dag Built ~n",[]),
     NodeDict.
     
