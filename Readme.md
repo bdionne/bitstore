@@ -72,17 +72,33 @@ By restricting the logic to a small set of features, description logics such as 
 Bitstore is taking a bottoms up approach to DL by starting with a simple triple store for each couchdb database. Each record is a triplet of couchdb document ids. So using the example above one might have triples:
 
     <aspirin, isa, anti-infective>
-    <aspirin, rout-of-administration oral>
+    <aspirin, route-of-administration oral>
 
-where all term with the same subject are implicitly conjoined together as part of a concept. Notice that **isa** and **route-of-administration** are relations and in general will connect multiples pairs of documents, nevertheless each relation will have a document associated with it, where we might store additional information such as whetehr the relation is transitive or has a converse
+where all terms with the same subject are implicitly conjoined together as part of a concept. The triples contain the ids for the docs, the names above are just for clarity. Notice that **isa** and **route-of-administration** are relations and in general will connect multiples pairs of documents, nevertheless each relation will have a document associated with it, where we might store additional information such as whetehr the relation is transitive or has a converse. So all the information about what in DL one might the schema, the relations, are stored as docs as well as the concepts but they are still completely independent of one another. The relations betwen docs are atroed in the triple store and are orthogonal to the documents. This contrasts with the approach taken by [Riak](http://github.com/zeitgeist/riak/) with its **links** that are contained in the docs. Of course this requires that the triple store stay in sync as the document store is changing. 
 
 ### Directed Acyclic Graphs
 
-It's fairly easy to view a triple store as a labelled graph, where each triple <source,arrow,target> represents a labelled arc connecting two nodes in the graph. In descriptions logics like Ontylog, classification, the process of computing the subsumption relation, is an algorithm that takes the concepts and builds a directed acyclic graph using the subsumption relation. But one can imagine forming graphs of documents in general, regardless of any logic, so the approach will be to layer the implementatin of ontylog on top of a more general graph data structure persisted in a triple store. We think this will add a lot of schema like functionality back into couchdb in a principled way. Users might wish to relate any documents to one another. So basically:
+It's fairly easy to view a triple store as a labelled graph, where each triple <source,arrow,target> represents a labelled arc connecting two nodes in the graph. In descriptions logics like Ontylog, the main inference process is classification, computing the subsumption relation. Ontylog uses what is sometimes called structural classification, it takes the concepts and builds a directed acyclic graph. But one can imagine forming graphs of documents in general, regardless of any logic, so the approach in Bitstore will be to layer the implementatin of ontylog on top of a more general graph data structure persisted in a triple store. We think this will add a lot of schema like functionality back into couchdb in a principled way. Users might wish to relate any documents to one another. We will expose the ability to relate docs this way in the REST api. A typical use case might be adding FOAF connections to documents representing people. 
 
-   bitstore =  couchdb + graph database + FTI
+### Full Text Indexing
 
-We think this provides an excellent foundation for ontology development. Couchdb's schema-less design coupled with replication and the simplicity of the REST/JSON api will provide an architecturally simple, flexible, and scalable approach to building environments for multiple collaborators to develop ontologies.
+We've also added FTI to Bitstore, embedding the [work](http://github.com/bdionne/indexer) based on the ideas in the Armstrong book. Currently we index all the values in all the docs and then use the changes api to incrmentally update the indices. Separate indices are kept for each database and stored as couchdb databases. You would think storing an inverted index in a couchdb would be kind of write heavy, and it is, but compaction handles this nicely and it's quite adequate for standalone single user usage, a typical scenario for the ontology developer.
+
+So basically:
+
+    bitstore =  couchdb + ontylog + FTI
+
+Or more generally:
+
+    bitstore = couchdb + graph database + FTI + ontylog
+
+One should be able to ignore the DL component ontylog and use it simply as a graph database, or use inference engine other than ontylog
+
+### Opinion
+
+We think this provides an excellent foundation for ontology development. Couchdb's schema-less design coupled with replication and the simplicity of the REST/JSON api will provide an architecturally simple, flexible, and scalable approach to building environments for multiple collaborators to develop ontologies. Having struggled with the enormous impedance mismatch between description logics and relational database, the NoSQL movement could not have come sooner. Reasoning over graphs is just not something relational dbs were built for.
+
+Moreover, trying to use a DL as the center and primary focus of a system has led to many bent screws over the years. CouchDB, together with CouchApps provides a very flexible and robust platform that will enable collaborators to incorporate various workflows and curation processes while keeping them separate from the DL aspects for the terminologies. Adding slots to documents to maintain history or evolution of terms, provenance, etc., requires no change to schemas as there are none. Additionally one can easily support multiple world views of the same set of documents by using multiple triple stores that refer to the same couchdb database. This could help solve the problem of having an epidemiologist and an anatomist both modelling the same terminology with somewhat different ideas as to upper structure and relations of importance.
 
 
 
