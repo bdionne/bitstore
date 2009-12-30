@@ -6,7 +6,8 @@ that is document centered, implemented as a
 slightly modified version of
 [couchdb](http://github.com/bdionne/couchdb/tree/bitstore). 
 
-**Note:** These notes are rough thoughts that I'll be developing in parallel with the code. They assume a lot of background information and are in no way self-contained.
+**Note:** These notes are rough thoughts that I'll be developing in parallel with the code.
+They assume a lot of background information and are in no way self-contained.
 
 ### Concepts as Documents
 
