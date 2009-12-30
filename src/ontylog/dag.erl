@@ -39,17 +39,48 @@
 %%--------------------------------------------------------------------
 dag_node(Id, Dict) ->
     receive
+        %% add labeled edge to another process
         {add, ArrowId, TargetPid} ->
-            case dict:find(ArrowId,Dict) of
-                {ok, TargetList} ->
-                    dict:store(ArrowId,[TargetPid] ++ TargetList,Dict);
-                error -> dict:store(ArrowId,[TargetPid],Dict)
-            end,
-            dag_node(Id, Dict);
+            NewDict = 
+                case dict:find(ArrowId,Dict) of
+                    {ok, TargetList} ->
+                        dict:store(ArrowId,[TargetPid] ++ TargetList,Dict);
+                    error -> dict:store(ArrowId,[TargetPid],Dict)
+                end,
+            dag_node(Id, NewDict);
+        %% send the id of this node to another process
         {name, Pid} -> Pid ! Id,
-                  dag_node(Id,Dict)
+                  dag_node(Id,Dict);
+        %% is node connected to another through a specific labelled
+        %% edge
+        {can_reach, ArrowId, TargetPid, Pid} ->
+            case dict:find(ArrowId,Dict) of
+                {ok, AdjNodes} ->
+                    case lists:member(TargetPid,AdjNodes) of
+                        true -> 
+                            Pid ! true;
+                        false -> 
+                            case lists:any(fun(Node) ->
+                                                   Node ! {can_reach,
+                                                           ArrowId, TargetPid,
+                                                           self()},
+                                                   receive true -> true;
+                                                           false -> false
+                                                   end
+                                           end, AdjNodes) of
+                                true -> Pid ! true;
+                                false -> Pid ! false
+                            end
+                    end;
+                error -> Pid ! false
+            end,                                                  
+            dag_node(Id, Dict)
     end.
 
+%% from a named mnesia table construct a dag as 
+%% a collection of processes, one for each node,
+%% each containing a dictionary mapping labelled arrows
+%% to lists of target nodes 
 build_dag(Table) ->
     Nodes = dict:new(),
     lists:foldl(fun({Source,Arrow,Target}, Acc) ->
