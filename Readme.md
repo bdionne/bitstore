@@ -6,6 +6,8 @@ that is document centered, implemented as a
 slightly modified version of
 [couchdb](http://github.com/bdionne/couchdb/tree/bitstore). 
 
+    **Note:** These notes are rough thoughts that I'll be developing in parallel with the code. They assume a lot of background and are in no way self-contained
+
 ### Concepts as Documents
 
 Description logics (DL) have been very successful for organizing knowledge
@@ -65,7 +67,7 @@ defined in terms of other concepts, often called parents, and one can have roles
 
 The key idea is that a concept describes a set of individuals in some universe. Description logics can have quite a lot of features depending on whether they support disjunctions, disjointness, cardinalities and negations. The three main dialects of OWL, Lite, DL, and FULL, support increasing amounts of expressivity in terms of the logic with the tradeoff being the ability to do inferencing. OWL Full for example is largely intractable. 
 
-By restricting the logic to a small set of features, description logics such as Ontylog have been able to support very large vocabularies, classifying them in reasonable time. The features of Ontylog can be encoded as conjunctions of terms whic are essentially binary predicates or triples. In fact OWL itself can be serialized as RDF so that triples are sufficent as storage for description logics.
+By restricting the logic to a small set of features, description logics such as Ontylog have been able to support very large vocabularies, classifying them in reasonable time. The features of Ontylog can be encoded as conjunctions of terms which are essentially binary predicates or triples. In fact OWL itself can be serialized as RDF so that triples are sufficent as storage for description logics.
 
 ### Simple Triple Store
 
@@ -74,11 +76,11 @@ Bitstore is taking a bottoms up approach to DL by starting with a simple triple 
     <aspirin, isa, anti-infective>
     <aspirin, route-of-administration oral>
 
-where all terms with the same subject are implicitly conjoined together as part of a concept. The triples contain the ids for the docs, the names above are just for clarity. Notice that **isa** and **route-of-administration** are relations and in general will connect multiples pairs of documents, nevertheless each relation will have a document associated with it, where we might store additional information such as whetehr the relation is transitive or has a converse. So all the information about what in DL one might the schema, the relations, are stored as docs as well as the concepts but they are still completely independent of one another. The relations betwen docs are atroed in the triple store and are orthogonal to the documents. This contrasts with the approach taken by [Riak](http://github.com/zeitgeist/riak/) with its **links** that are contained in the docs. Of course this requires that the triple store stay in sync as the document store is changing. 
+where all terms with the same subject are implicitly conjoined together as part of a concept. The triples contain the ids for the docs, the names above are just for clarity. Notice that **isa** and **route-of-administration** are relations and in general will connect multiples pairs of documents, nevertheless each relation will have a document associated with it, where we might store additional information such as whether the relation is transitive or has a converse. So all the information about what in a DL one might consider the schema, the relations, are stored as docs as well as the concepts but they are still completely independent of one another. The relations betwen docs are stored in the triple store and are orthogonal to the documents. This contrasts with the approach taken by [Riak](http://github.com/zeitgeist/riak/) with its **links** that are contained in the docs. Of course this requires that the triple store stay in sync as the document store is changing. 
 
 ### Directed Acyclic Graphs
 
-It's fairly easy to view a triple store as a labelled graph, where each triple <source,arrow,target> represents a labelled arc connecting two nodes in the graph. In descriptions logics like Ontylog, the main inference process is classification, computing the subsumption relation. Ontylog uses what is sometimes called structural classification, it takes the concepts and builds a directed acyclic graph. But one can imagine forming graphs of documents in general, regardless of any logic, so the approach in Bitstore will be to layer the implementatin of ontylog on top of a more general graph data structure persisted in a triple store. We think this will add a lot of schema like functionality back into couchdb in a principled way. Users might wish to relate any documents to one another. We will expose the ability to relate docs this way in the REST api. A typical use case might be adding FOAF connections to documents representing people. 
+It's fairly easy to view a triple store as a labelled graph, where each triple <source,arrow,target> represents a labelled arc connecting two nodes in the graph. In descriptions logics like Ontylog, the main inference process is classification, computing the subsumption relation. Ontylog uses what is sometimes called structural classification, it takes the concepts and builds a directed acyclic graph. But one can imagine forming graphs of documents in general, regardless of any logic, so the approach in Bitstore will be to layer the implementatin of ontylog on top of a more general graph data structure persisted in a triple store. We think this will add a lot of schema like functionality back into couchdb in a principled way. Users might wish to relate any pair of documents to one another. We will expose the ability to relate docs this way in the REST api. A typical use case might be adding FOAF connections to documents representing people. 
 
 ### Full Text Indexing
 
