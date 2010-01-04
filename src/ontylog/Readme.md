@@ -1,6 +1,6 @@
 ## A graph based approach to description logic
 
-This is a new implementation of ontylog, well about 75% of the features of ontylog. Historically ontylog differs from other systems such as Pellet and Fact in that the approach to classification is based on graph walking and is structural or intensional, rather than based on tableaux techniques using models and finite failure. The tradeoff is limited expressivity in favor of scalability. To this day this author does not believe that tableaux based classifiers come anywhere near ontylog in performance and scalability. [NCI Thesaurus](http://www.cancer.gov/cancertopics/terminologyresources) can take 40 minutes of so for the initial classification using Pellet, where ontylog could do it in well under 3 minutes, most of that time spent talking to a relation database. Moreover Pellet uses much more memory. However it's important to emphasize that the comparison is apples and oranges as ontylog has far fewer features than Pellet, which supports all of OWL-DL.
+This is a new implementation of ontylog, well about 75% of the features of ontylog. Historically ontylog differs from other systems such as Pellet and Fact in that the approach to classification is based on graph walking and is structural or intensional, rather than based on tableaux techniques using models and finite failure. The tradeoff is limited expressivity in favor of scalability. To this day this author does not believe that tableaux based classifiers come anywhere near ontylog in performance and scalability. [NCI Thesaurus](http://www.cancer.gov/cancertopics/terminologyresources) can take 40 minutes of so for the initial classification using Pellet, where ontylog could do it in well under 3 minutes, most of that time spent talking to a relational database. Moreover Pellet uses much more memory. However it's important to emphasize that the comparison is apples and oranges as ontylog has far fewer features than Pellet, which supports all of OWL-DL.
 
 ### Ontylog
 
@@ -15,7 +15,9 @@ For various practical reasons touched on in the [overview](http://github.com/bdi
 ### Every node in a classification dag is an erlang processes
 
 Working in erlang one of the first really impressive features is the process model. For example one can perform [exponentiation](http://dsonline.computer.org/portal/site/dsonline/menuitem.9ed3d9924aeb0dcd82ccc6716bbe36ec/index.jsp?&pName=dso_level1&path=dsonline/2007/10&file=w5tow.xml&xsl=article.xsl&)
-faster using processes than recursion. This article on [modelling graphs](http://www.builderau.com.au/program/soa/Modelling-graphs-with-processes-in-Erlang/0,339024614,339283345,00.htm) motivated us to wonder what improvements on the core classification algorithms of onylog might be had by making each concept in the dag an erlang process and using message passing. So this work is very much a prototype and the design will likely evolve considerably over time.
+faster using processes than recursion. This article on [modelling graphs](http://www.builderau.com.au/program/soa/Modelling-graphs-with-processes-in-Erlang/0,339024614,339283345,00.htm) motivated us to wonder what improvements on the core classification algorithms of onylog might be had by making each concept in the dag an erlang process and using message passing. Large terminologies tend to be tree like, although in some areas there may be considerably upward branching, but overall the connectivity is low so a grpah modelled as a collection of processes might perform quite well.
+
+This work is very much a prototype and the design will likely evolve considerably over time.
 
 
 
