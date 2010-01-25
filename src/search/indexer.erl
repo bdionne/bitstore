@@ -33,7 +33,6 @@
 -record(state, {dbs}).
 
 start_link() ->
-    %%osmos:start(),
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 init([]) ->    

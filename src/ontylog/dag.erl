@@ -26,7 +26,8 @@
 
 %% API
 -export([build_dag/1,
-        dag_node/2]).
+         add_edge/2,
+         remove_edge/2]).
 
 -import(triple_store, [all_triples/1]).
 
@@ -37,8 +38,55 @@
 %% Function: 
 %% Description:
 %%--------------------------------------------------------------------
+
+%% from a named mnesia table construct a dag as 
+%% a collection of processes, one for each node,
+%% each containing a dictionary mapping labelled arrows
+%% to lists of target nodes 
+build_dag(Table) ->
+    Nodes = dict:new(),
+    lists:foldl(fun({Source,Arrow,Target}, Acc) ->
+                      {SourcePid, NewAcc1} = find_or_create_pid(Source,Acc),
+                      {TargetPid, NewAcc2} = find_or_create_pid(Target,NewAcc1),
+                      SourcePid ! {add, Arrow, TargetPid},
+                      io:format("size of nodes is ~p ~n",[dict:size(NewAcc2)]),
+                      NewAcc2
+              end, Nodes, all_triples(Table)).
+
+add_edge(Dag, {SubId, PredId, ObjId}) ->
+    {SubPid, Dag1} = find_or_create_pid(SubId, Dag),
+    {ObjPid, Dag2} = find_or_create_pid(ObjId, Dag1),
+    SubPid ! {add, PredId, ObjPid},
+    Dag2.
+
+remove_edge(Dag, {SubId, PredId, ObjId}) ->
+    {SubPid, Dag1} = find_or_create_pid(SubId, Dag),
+    {ObjPid, Dag2} = find_or_create_pid(ObjId, Dag1),
+    SubPid ! {remove, PredId, ObjPid},
+    Dag2.
+    
+                      
+
+%%====================================================================
+%% Internal functions
+%%====================================================================
+find_or_create_pid(Id,Nodes) ->
+    case dict:find(Id,Nodes) of
+        {ok, Pid} ->
+            io:format("found id ~n",[]),
+            {Pid, Nodes};
+        error ->
+            io:format("spawning node for ~p ~n",[Id]),
+            Pid = spawn(?MODULE, dag_node, [Id, dict:new()]),
+            NewNodes = dict:store(Id, Pid, Nodes),
+            {Pid, NewNodes}            
+    end.
+
 dag_node(Id, Dict) ->
     receive
+        %% send the id of this node to another process
+        {name, Pid} -> Pid ! Id,
+                  dag_node(Id,Dict);
         %% add labeled edge to another process
         {add, ArrowId, TargetPid} ->
             NewDict = 
@@ -48,9 +96,22 @@ dag_node(Id, Dict) ->
                     error -> dict:store(ArrowId,[TargetPid],Dict)
                 end,
             dag_node(Id, NewDict);
-        %% send the id of this node to another process
-        {name, Pid} -> Pid ! Id,
-                  dag_node(Id,Dict);
+
+        %% delete labeled edge to another process
+        {remove, ArrowId, TargetPid} ->
+            NewDict = 
+                case dict:find(ArrowId,Dict) of
+                    {ok, TargetList} ->
+                        NewTargetList = case lists:member(TargetPid, TargetList) of
+                                            true -> 
+                                                lists:delete(TargetPid, TargetList);
+                                            false ->
+                                                TargetList
+                                        end,                                
+                        dict:store(ArrowId, NewTargetList, Dict);
+                    error -> Dict
+                end,
+            dag_node(Id, NewDict);        
         %% is node connected to another through a specific labelled
         %% edge
         {can_reach, ArrowId, TargetPid, Pid} ->
@@ -77,33 +138,4 @@ dag_node(Id, Dict) ->
             dag_node(Id, Dict)
     end.
 
-%% from a named mnesia table construct a dag as 
-%% a collection of processes, one for each node,
-%% each containing a dictionary mapping labelled arrows
-%% to lists of target nodes 
-build_dag(Table) ->
-    Nodes = dict:new(),
-    lists:foldl(fun({Source,Arrow,Target}, Acc) ->
-                      {SourcePid, NewAcc1} = find_or_create_pid(Source,Acc),
-                      {TargetPid, NewAcc2} = find_or_create_pid(Target,NewAcc1),
-                      SourcePid ! {add, Arrow, TargetPid},
-                      io:format("size of nodes is ~p ~n",[dict:size(NewAcc2)]),
-                      NewAcc2
-              end, Nodes, all_triples(Table)).
-                      
-
-%%====================================================================
-%% Internal functions
-%%====================================================================
-find_or_create_pid(Id,Nodes) ->
-    case dict:find(Id,Nodes) of
-        {ok, Pid} ->
-            io:format("found id ~n",[]),
-            {Pid, Nodes};
-        error ->
-            io:format("spawning node for ~p ~n",[Id]),
-            Pid = spawn(?MODULE, dag_node, [Id, dict:new()]),
-            NewNodes = dict:store(Id, Pid, Nodes),
-            {Pid, NewNodes}            
-    end.
     

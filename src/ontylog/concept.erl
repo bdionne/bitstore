@@ -30,7 +30,7 @@
 %% docs. I've debated using just the ids instead but suspect there will be times when
 %% other bits of the doc are required, .eg. whether or not a concept is primitive or
 %% defined.
--export([is_primitive/1,
+-export([is_primitive/2,
          defined_parents/2,
          defined_children/2,
          inferred_parents/2,
@@ -44,5 +44,12 @@
 %% and produce docs on output, grabbing the ids as needed to talk to the Dag/triple-store
 %% layer and use hovercraft to look up docs by id as needed
 %%
+%% By default a concept is primitive
+is_primitive(#doc{id=Id, body={PropList}}) ->
+    proplists:get_value(<<"defined">>,PropList,false).
+%%
+%%
+defined_parents(#doc{id=Id}) ->
+    
 
 
