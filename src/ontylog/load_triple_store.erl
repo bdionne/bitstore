@@ -26,18 +26,20 @@
 %%
 %%
 %%
--export([load_dag/1]).
+-export([load_table/1, name_to_id/2]).
 
--import(triple_store, [insert_tuple/4, init/1]).
+-import(triple_store, [insert_tuple/4, init/1, delete/1]).
 
-getTriple(Triple) ->
-    case Triple of
-        [{atom,_,Subject},
-         {atom,_,Predicate},
-         {atom,_,Object}] ->
-            [Subject,Predicate,Object];
-        _ -> []
+name_to_id(Name,Dict) ->
+    case dict:find(Name, Dict) of
+        {ok, Value} ->
+            {Value, Dict};
+        error -> NewId = couch_uuids:new(),
+                 NewDict = dict:store(Name, NewId, Dict),
+                 {NewId, NewDict}
     end.
+                      
+
 
 assign_ids([H | T], NodeDict, NodePairs) ->
     case dict:find(H, NodeDict) of
@@ -59,27 +61,25 @@ store_triple(TripNodeIds,Table) ->
         _ -> []
     end.
 
-build_triples(File, NodeDict, Table) ->
-    case io:get_line(File,'') of
-        eof -> NodeDict;
-        LS -> 
-            Triple = getTriple(element(2,erl_scan:string(LS))),
-            {TripleNodeIdPairs, NewNodeDict} = assign_ids(Triple, NodeDict, []),
-            store_triple(TripleNodeIdPairs, Table),
-            build_triples(File, NewNodeDict, Table)
-    end.
+build_triples(TripleList, NodeDict, Table) ->
+    lists:foldl(fun(Triple,Acc) ->
+                        {TripleNodeIdPairs, NewNodeDict} =
+                            assign_ids(tuple_to_list(Triple), Acc, []),
+                        store_triple(TripleNodeIdPairs, Table),
+                        NewNodeDict
+                end,NodeDict,TripleList).
 
 %% load_dag takes a text file, each line of which specifies a source/arrow/target
 %% triplet, assigns a unique id to each item and stores the triplets
 %% in a mnesia table
 %% 
-load_dag(Dag) ->
-    io:format("Loading Dag: ",[]),
-    File = element(2,file:open(Dag, [read])),
-    {atom, 1, Table} = hd(element(2, erl_scan:string(io:get_line(File,'')))),
-    init(Table),
-    NodeDict = build_triples(File,dict:new(),Table),
-    io:format("Dag Built ~n",[]),
+
+load_table(TableSpec) ->
+    TabName = hd(TableSpec),
+    delete(TabName),
+    init(TabName),
+    NodeDict = build_triples(hd(tl(TableSpec)),dict:new(),TabName),
+    io:format("Table loaded ~n",[]),
     NodeDict.
     
     

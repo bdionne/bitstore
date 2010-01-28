@@ -28,14 +28,21 @@
 -include_lib("eunit/include/eunit.hrl").
 %%
 %%
-foo_test() ->
-    ?assert(true).
+-import(load_triple_store, [load_table/1, name_to_id/2]).
+%%
+%%
 %%
 add_simple_link_test() ->
-    bitstore:add_triple(<<"01">>,<<"02">>,<<"03">>,onearc),
-    ?assert(length(bitstore:get_nodes(<<"01">>,<<"02">>, onearc)) =:= 1),
-    bitstore:add_triple(<<"01">>,<<"02">>,<<"04">>,onearc),
-    ?assert(length(bitstore:get_nodes(<<"01">>,<<"02">>, onearc)) =:= 2),
-    ?assert(hd(bitstore:get_nodes(<<"01">>,<<"02">>, onearc)) =:= <<"04">>),
-    bitstore:remove_triple(<<"01">>,<<"02">>,<<"03">>,onearc),
-    ?assert(length(bitstore:get_nodes(<<"01">>,<<"02">>, onearc)) =:= 1).
+    NameTable = load_table(diamond_spec()),
+    {SubId, _} = name_to_id(d, NameTable),
+    {PredId, _} = name_to_id(p, NameTable),
+    ?assert(length(bitstore:get_nodes(SubId,PredId,diamond)) =:= 2).
+    
+
+diamond_spec() ->
+    [diamond, [{d, p, c},
+           {d, p, b},
+           {c, p, a},
+           {b, p, a}]].
+
+
