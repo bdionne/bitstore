@@ -4,8 +4,7 @@
 <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
 <title>Dionne Associates, LLC.</title>
 <link rel="stylesheet" href="style.css" type="text/css" />
-<link rel="stylesheet" type="text/css" href="Macintosh HD:Users:bitdiddle:Documents:foo.css"  />	  </head>
-
+<link rel="stylesheet" type="text/css" href="Macintosh HD:Users:bitdiddle:Documents:foo.css"  /></head>
 <body>
 <div id="wrap">
 
@@ -23,10 +22,15 @@
   <br/>
    <br/>
   <br/>
-    <a href="http://github.com/bdionne/bitstore">Bitstore</a> is also a new approach to implementing Ontylog.
+    <a href="http://github.com/bdionne/bitstore">Bitstore</a> is a new approach to implementing Ontylog, built on top of <a href="http://couchdb.apache.org">CouchDB</a>, that makes a clean separation between syntactic and semantic concerns. Concepts in Ontylog are documents in couchdb, each completely independent of others. Relations between concepts, are maintained as separate graphs in a triple store where documents are identified in the triple store by their unique ids. Schema information about the concepts, roles and their properties are also stored as couch documents. It's hoped that this approach will enable a far more flexible system for building and managing terminologies. By keeping description logic and other inference engines separate from the terminologies, and using more general documents to represent concepts we feel that support for multiple world views and ontology federation will as least be doable in some form.
   <br/>
    <br/>
   <br/>
+  </p>
+  <p>
+  Currently bitstore is largely a prototype effort with two major extensions to couchdb. The first, <a href="http://github.com/bdionne/indexer">native full text indexing</a> provides support for searching over documents and is based on ideas from the erlang book. The second, a triple store implementation of ontylog is currently using mnesia as it provides a simple persistence mechanism that inherits all the distributed awesomeness of erlang. The sources for bitstore can be downloaded <a href="http://github.com/bdionne/bitstore/archives/master">here</a>, and the sources for the modified couchdb branch are <a href="http://github.com/bdionne/couchdb/tree/bitstore">here</a>. The modifications to couchdb are minor. It's hoped that at some point, perhaps post 1.0, a server side plugin architecture for couchdb will enable extensions such as this to be dropped in with just a config file entry. The beauty of erlang and the couchdb design is that it is so elegant and simple it doesn't take a lot of work to see how to extend it.
+  
+  
   </p>
  
 <a href="http://www.fsf.org/register_form?referrer=331"><img src="images/getButton.png" alt="[FSF Associate Member]" width="88" height="31" /></a> 
