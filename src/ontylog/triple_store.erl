@@ -55,6 +55,10 @@ insert_tuple(Source, Arrow, Target, Table) ->
 	  end).
 
 all_triples(Table) ->
+    case lists:member(Table, mnesia:system_info(tables)) of
+        true -> ok;
+        _ -> init(Table)
+    end,
     F = fun() ->
                 Q = qlc:q([{Edge#triple.source, Edge#triple.arrow,
                             Edge#triple.target} ||

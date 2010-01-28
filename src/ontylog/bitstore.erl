@@ -30,7 +30,8 @@
 %% API
 -export([start_link/0, 
          add_triple/4,
-         remove_triple/4]).
+         remove_triple/4,
+         get_nodes/3]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -38,6 +39,7 @@
 
 -import(dag, [build_dag/1, 
               add_edge/2,
+              get_nodes/2,
               remove_edge/2]).
 
 -record(state, {dbs}).
@@ -59,6 +61,10 @@ add_triple(SubId, PredId, ObjId, DbName) ->
 %% delete graph edge from existing graph
 remove_triple(SubId, PredId, ObjId, DbName) ->
     gen_server:call(?MODULE, {remove_triple, {SubId, PredId, ObjId}, DbName}, infinity).
+
+get_nodes(SubId, PredId, DbName) ->
+    gen_server:call(?MODULE, {get_nodes, {SubId, PredId}, DbName}, infinity).
+    
 
 %%====================================================================
 %% gen_server callbacks
@@ -87,15 +93,20 @@ handle_call({add_triple, Triplet, DbName}, _From, State) ->
     #state{dbs=Tab} = State,
     Dag = find_or_build_dag(Tab, DbName),
     Dag2 = add_edge(Dag, Triplet),
-    Tab2 = ets:insert(Tab,{DbName, Dag2}),              
-    {reply, ok, #state{dbs=Tab2}}.
-
+    ets:insert(Tab,{DbName, Dag2}),              
+    {reply, ok, #state{dbs=Tab}};
 handle_call({remove_triple, Triplet, DbName}, _From, State) ->
     #state{dbs=Tab} = State,
     Dag = find_or_build_dag(Tab, DbName),    
     Dag2 = remove_edge(Dag, Triplet),
-    Tab2 = ets:insert(Tab,{DbName, Dag2}),              
-    {reply, ok, #state{dbs=Tab2}}.
+    ets:insert(Tab,{DbName, Dag2}),              
+    {reply, ok, #state{dbs=Tab}};
+handle_call({get_nodes, Pair, DbName}, _From, State) ->
+    #state{dbs=Tab} = State,
+    Dag = find_or_build_dag(Tab, DbName),
+    Nodes = get_nodes(Dag, Pair),
+    {reply, Nodes, State}.
+    
 
 %%--------------------------------------------------------------------
 %% Function: handle_cast(Msg, State) -> {noreply, State} |

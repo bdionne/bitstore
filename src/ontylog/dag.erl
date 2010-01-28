@@ -27,7 +27,9 @@
 %% API
 -export([build_dag/1,
          add_edge/2,
-         remove_edge/2]).
+         remove_edge/2,
+         get_nodes/2,
+         dag_node/2]).
 
 -import(triple_store, [all_triples/1]).
 
@@ -52,6 +54,14 @@ build_dag(Table) ->
                       io:format("size of nodes is ~p ~n",[dict:size(NewAcc2)]),
                       NewAcc2
               end, Nodes, all_triples(Table)).
+
+get_nodes(Dag, {SubId, PredId}) ->
+    {SubPid, _} = find_or_create_pid(SubId, Dag),
+    SubPid ! {nodes, PredId, self()},
+    receive
+        Nodes -> Nodes
+    end.
+            
 
 add_edge(Dag, {SubId, PredId, ObjId}) ->
     {SubPid, Dag1} = find_or_create_pid(SubId, Dag),
@@ -82,11 +92,25 @@ find_or_create_pid(Id,Nodes) ->
             {Pid, NewNodes}            
     end.
 
+id(Pid) ->
+    Pid ! {name, self()},
+    receive
+        Id ->
+            Id
+    end.
+            
+
 dag_node(Id, Dict) ->
     receive
         %% send the id of this node to another process
         {name, Pid} -> Pid ! Id,
                   dag_node(Id,Dict);
+        {nodes, ArrowId, CallerPid} ->
+            case dict:find(ArrowId, Dict) of
+                {ok, TargetList} -> CallerPid ! lists:map(fun id/1, TargetList);
+                _ -> CallerPid ! []
+            end,
+            dag_node(Id, Dict);                                    
         %% add labeled edge to another process
         {add, ArrowId, TargetPid} ->
             NewDict = 
