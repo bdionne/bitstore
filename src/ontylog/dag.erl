@@ -29,6 +29,7 @@
          add_edge/2,
          remove_edge/2,
          get_nodes/2,
+         get_all/2,
          dag_node/2]).
 
 -import(triple_store, [all_triples/1]).
@@ -61,6 +62,15 @@ get_nodes(Dag, {SubId, PredId}) ->
     receive
         Nodes -> Nodes
     end.
+
+get_all(Dag, SubId) ->
+    {SubPid, _} = find_or_create_pid(SubId, Dag),
+    SubPid ! {all, self()},
+    receive
+        Definition ->
+            Definition
+    end.
+    
             
 
 add_edge(Dag, {SubId, PredId, ObjId}) ->
@@ -110,7 +120,12 @@ dag_node(Id, Dict) ->
                 {ok, TargetList} -> CallerPid ! lists:map(fun id/1, TargetList);
                 _ -> CallerPid ! []
             end,
-            dag_node(Id, Dict);                                    
+            dag_node(Id, Dict); 
+        {all, CallerPid} ->
+            AllEdges = dict:to_list(Dict),
+            CallerPid ! lists:map(fun({key,Values}) ->
+                                          {key, lists:map(fun id/1, Values)}
+                                  end, AllEdges);
         %% add labeled edge to another process
         {add, ArrowId, TargetPid} ->
             NewDict = 

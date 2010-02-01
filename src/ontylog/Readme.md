@@ -12,12 +12,12 @@ Classification algorithms, which compute the subsumption relation, as implemente
 
 For various practical reasons touched on in the [overview](http://github.com/bdionne/bitstore/blob/master/Readme.md) of bitstore, this new implementation is going to take a further step and completely separate the logical inferencing from the management of the terminologies by treating concepts as simply independent documents. This will enable different reasoners to be used for each database.
 
-### Every node in a classification dag is an erlang processes
+### Every node in a classification dag is an erlang process
 
-Working in erlang one of the first really impressive features is the process model. For example one can perform [exponentiation](http://dsonline.computer.org/portal/site/dsonline/menuitem.9ed3d9924aeb0dcd82ccc6716bbe36ec/index.jsp?&pName=dso_level1&path=dsonline/2007/10&file=w5tow.xml&xsl=article.xsl&)
-faster using processes than recursion. This article on [modelling graphs](http://www.builderau.com.au/program/soa/Modelling-graphs-with-processes-in-Erlang/0,339024614,339283345,00.htm) motivated us to wonder what improvements on the core classification algorithms of onylog might be had by making each concept in the dag an erlang process and using message passing. Large terminologies tend to be tree like, although in some areas there may be considerably upward branching, but overall the connectivity is low so a grpah modelled as a collection of processes might perform quite well.
+One of the really impressive features of erlang is the process model. For example one can perform [exponentiation](http://dsonline.computer.org/portal/site/dsonline/menuitem.9ed3d9924aeb0dcd82ccc6716bbe36ec/index.jsp?&pName=dso_level1&path=dsonline/2007/10&file=w5tow.xml&xsl=article.xsl&)
+faster using processes than recursion. This article on [modelling graphs](http://www.builderau.com.au/program/soa/Modelling-graphs-with-processes-in-Erlang/0,339024614,339283345,00.htm) motivated us to wonder what improvements on the core classification algorithms of onylog might be had by making each concept in the dag an erlang process and using message passing. Large terminologies tend to be tree like, although in some areas there may be considerably upward branching, but overall the connectivity is low so a graph modelled as a collection of processes might perform quite well.
 
-This work is very much a prototype and the design will likely evolve considerably over time.
+This work is very much a prototype and the design will likely evolve considerably over time, .eg. mnesia seems to have it's share of critics.
 
 
 

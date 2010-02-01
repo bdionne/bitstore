@@ -29,9 +29,10 @@
 
 %% API
 -export([start_link/0, 
-         add_triple/4,
-         remove_triple/4,
-         get_nodes/3]).
+         add_role_value/4,
+         remove_role_value/4,
+         get_role_values/3,
+         get_concept_def/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -40,6 +41,7 @@
 -import(dag, [build_dag/1, 
               add_edge/2,
               get_nodes/2,
+              get_all/2,
               remove_edge/2]).
 
 -record(state, {dbs}).
@@ -55,15 +57,18 @@ start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 %% add graph edge to existing graph
-add_triple(SubId, PredId, ObjId, DbName) ->
+add_role_value(SubId, PredId, ObjId, DbName) ->
     gen_server:call(?MODULE, {add_triple, {SubId, PredId, ObjId}, DbName}, infinity).
 
 %% delete graph edge from existing graph
-remove_triple(SubId, PredId, ObjId, DbName) ->
+remove_role_value(SubId, PredId, ObjId, DbName) ->
     gen_server:call(?MODULE, {remove_triple, {SubId, PredId, ObjId}, DbName}, infinity).
 
-get_nodes(SubId, PredId, DbName) ->
+get_role_values(SubId, PredId, DbName) ->
     gen_server:call(?MODULE, {get_nodes, {SubId, PredId}, DbName}, infinity).
+
+get_concept_def(SubId, DbName) ->
+    gen_server:call(?MODULE, {get_relations, SubId, DbName}, infinity).
     
 
 %%====================================================================
@@ -105,7 +110,13 @@ handle_call({get_nodes, Pair, DbName}, _From, State) ->
     #state{dbs=Tab} = State,
     Dag = find_or_build_dag(Tab, DbName),
     Nodes = get_nodes(Dag, Pair),
-    {reply, Nodes, State}.
+    {reply, Nodes, State};
+handle_call({get_relations, SubId, DbName}, _From, State) ->
+    #state{dbs=Tab} = State,
+    Dag = find_or_build_dag(Tab, DbName),
+    ConceptDef = get_all(Dag, SubId),
+    {reply, ConceptDef, State}.
+
     
 
 %%--------------------------------------------------------------------

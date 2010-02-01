@@ -24,7 +24,7 @@
 	<key>binderWidth</key>
 	<real>130</real>
 	<key>closedSuccessfully</key>
-	<false/>
+	<true/>
 	<key>editorSplitType</key>
 	<integer>0</integer>
 	<key>fullScreenInspectorVisible</key>
