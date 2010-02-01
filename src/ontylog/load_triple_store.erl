@@ -68,12 +68,11 @@ build_triples(TripleList, NodeDict, Table) ->
                         store_triple(TripleNodeIdPairs, Table),
                         NewNodeDict
                 end,NodeDict,TripleList).
-
+%%
 %% load_dag takes a text file, each line of which specifies a source/arrow/target
 %% triplet, assigns a unique id to each item and stores the triplets
 %% in a mnesia table
 %% 
-
 load_table(TableSpec) ->
     TabName = hd(TableSpec),
     delete(TabName),

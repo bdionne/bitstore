@@ -1,0 +1,35 @@
+#+TITLE:     Bitstore
+#+AUTHOR:    Bob Dionne
+#+EMAIL:     dionne@dionne-associates.com
+#+LANGUAGE:  en
+#+TEXT:      Some development notes on bitsore, motivation, architecture, etc..
+#+OPTIONS:   H:3 num:t toc:t \n:nil @:t ::t |:t ^:t -:t f:t *:t TeX:t LaTeX:nil skip:t d:nil tags:not-in-toc
+* Introduction
+Bitstore is a new approach to terminology development that aspires to support collaborative federated terminologies at web scale. It departs somewhat from traditional description logic based systems in that it makes a clear separation between definitions (syntax) and inferencing (semantics), taking fully into account that terminology construction is as much about document and content management as it is about building taxonomies, semantic navigation, and making inferences about ontologies. It is fairly accurate to say that the
+focus to date has always been on data structures motivated by the use of description logics.
+** Motivation
+Over the years, as we've used description logic based systems for terminology work at NCI, many of the issues and problems we've encountered have little or nothing to do with description logic. Certainly building ontologies with consistent semantics that enable modeling in a principled and rigorous fashion is critical. However there are many other aspects of the process, collaborative workflow, capturing history and auditing trails of edits, encoding business rules specific to individual ontologies, for example; *A class must have a preferred-name, display-name, and a full-syn complex property*. 
+
+Much of this has little to do with description logic, yet to date the approaches we've taken have all made use of data structures, database schemas and so forth that are designed to support primarily the inferencing capabilities of the particular logic.
+** Overview
+These notes are intended to document the prototyping and implementation of bitstore. The next section provides a high level description of the architecture and is followed by detailed notes on the implementation. As each approach to the major pieces is tried, metric will be employed to determine the efficacy and adherence to the stated goals. This project is somewhat ambitious in that the goal is to take ontylog up an order of magnitude in scalability whilst also reworking the fundamentals of terminology development to better support schema evolution, federation and collaboration.
+
+* Architecture
+** Concepts as Documents
+The basic design of Bitstore is to use CouchDB to store concepts, each concept becomes a distinct couchdb document with a unique identifier, in couchdb databases. So a database roughly corresponds to a terminology. In the language of OWL one might consider a database a *namespace*. Concepts relate to one another through relations such as *isa*,*subsumes*,*gene-encodes*,*is-located-in*, etc. Each relation is also stored in a document, so that they can be uniquely identified as well as to store metalevel information, for example the provenance of the relation or mathematical properties such as transitivity or whether it has an inverse. 
+** Ontylog
+An additional store is used for the actual relationships between concepts. This is a triple store where each item in a triple is a unique id corresponding to a document. These represent RDF triples, more or less, and are used to encode relationships such as *Aspirin isa drug* or *gene encodes protein*.
+** FTI
+* Implementation
+** enhancements to CouchDB
+*** couch httpd
+*** hovercraft
+*** couch server supervisor
+*** jquery couch enhancements
+** Bitstore
+*** ontylog
++ triple store for dags
++ classification and role inheritance as graph operations
++ separation of ontylog from graphs
+*** concepts as documents
+*** FTI
