@@ -32,7 +32,8 @@
          add_role_value/4,
          remove_role_value/4,
          get_role_values/3,
-         get_concept_def/2]).
+         get_concept_def/2,
+         is_related/4]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -40,9 +41,10 @@
 
 -import(dag, [build_dag/1, 
               add_edge/2,
-              get_nodes/2,
-              get_all/2,
-              remove_edge/2]).
+              remove_edge/2,
+              get_edge_targets/2,
+              get_edges/2,
+              path_exists/2]).
 
 -record(state, {dbs}).
 
@@ -65,10 +67,15 @@ remove_role_value(SubId, PredId, ObjId, DbName) ->
     gen_server:call(?MODULE, {remove_triple, {SubId, PredId, ObjId}, DbName}, infinity).
 
 get_role_values(SubId, PredId, DbName) ->
-    gen_server:call(?MODULE, {get_nodes, {SubId, PredId}, DbName}, infinity).
+    gen_server:call(?MODULE, {get_edge_targets, {SubId, PredId}, DbName}, infinity).
 
 get_concept_def(SubId, DbName) ->
-    gen_server:call(?MODULE, {get_relations, SubId, DbName}, infinity).
+    gen_server:call(?MODULE, {get_edges, SubId, DbName}, infinity).
+
+is_related(SubId,PredId,TargetId,DbName) ->
+    gen_server:call(?MODULE, {path_exists, {SubId, PredId, TargetId}, DbName}, infinity).
+
+
     
 
 %%====================================================================
@@ -106,16 +113,20 @@ handle_call({remove_triple, Triplet, DbName}, _From, State) ->
     Dag2 = remove_edge(Dag, Triplet),
     ets:insert(Tab,{DbName, Dag2}),              
     {reply, ok, #state{dbs=Tab}};
-handle_call({get_nodes, Pair, DbName}, _From, State) ->
+handle_call({get_edge_targets, Pair, DbName}, _From, State) ->
     #state{dbs=Tab} = State,
     Dag = find_or_build_dag(Tab, DbName),
-    Nodes = get_nodes(Dag, Pair),
+    Nodes = get_edge_targets(Dag, Pair),
     {reply, Nodes, State};
-handle_call({get_relations, SubId, DbName}, _From, State) ->
+handle_call({get_edges, SubId, DbName}, _From, State) ->
     #state{dbs=Tab} = State,
     Dag = find_or_build_dag(Tab, DbName),
-    ConceptDef = get_all(Dag, SubId),
-    {reply, ConceptDef, State}.
+    ConceptDef = get_edges(Dag, SubId),
+    {reply, ConceptDef, State};
+handle_call({path_exists, Triple, DbName}, _From, State) ->
+    #state{dbs=Tab} = State,
+    Dag = find_or_build_dag(Tab, DbName),
+    {reply, path_exists(Dag, Triple), State}.
 
     
 

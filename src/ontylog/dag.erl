@@ -28,8 +28,9 @@
 -export([build_dag/1,
          add_edge/2,
          remove_edge/2,
-         get_nodes/2,
-         get_all/2,
+         get_edge_targets/2,
+         get_edges/2,
+         path_exists/2,
          dag_node/2]).
 
 -import(triple_store, [all_triples/1]).
@@ -56,22 +57,32 @@ build_dag(Table) ->
                       NewAcc2
               end, Nodes, all_triples(Table)).
 
-get_nodes(Dag, {SubId, PredId}) ->
+get_edge_targets(Dag, {SubId, PredId}) ->
     {SubPid, _} = find_or_create_pid(SubId, Dag),
-    SubPid ! {nodes, PredId, self()},
+    SubPid ! {edge_targets, PredId, self()},
     receive
         Nodes -> Nodes
     end.
 
-get_all(Dag, SubId) ->
+get_edges(Dag, SubId) ->
     {SubPid, _} = find_or_create_pid(SubId, Dag),
-    SubPid ! {all, self()},
+    SubPid ! {edges, self()},
     receive
         Definition ->
             Definition
     end.
+
+path_exists(Dag, {SubId, PredId, TargetId}) ->
+    {SubPid, _} = find_or_create_pid(SubId, Dag),
+    {TargetPid, _} = find_or_create_pid(TargetId, Dag),
+    SubPid ! {can_reach, PredId, TargetPid, self()},
+    receive
+        Bool ->
+            Bool
+    end.
     
-            
+
+           
 
 add_edge(Dag, {SubId, PredId, ObjId}) ->
     {SubPid, Dag1} = find_or_create_pid(SubId, Dag),
@@ -83,9 +94,7 @@ remove_edge(Dag, {SubId, PredId, ObjId}) ->
     {SubPid, Dag1} = find_or_create_pid(SubId, Dag),
     {ObjPid, Dag2} = find_or_create_pid(ObjId, Dag1),
     SubPid ! {remove, PredId, ObjPid},
-    Dag2.
-    
-                      
+    Dag2.                      
 
 %%====================================================================
 %% Internal functions
@@ -115,16 +124,16 @@ dag_node(Id, Dict) ->
         %% send the id of this node to another process
         {name, Pid} -> Pid ! Id,
                   dag_node(Id,Dict);
-        {nodes, ArrowId, CallerPid} ->
+        {edge_targets, ArrowId, CallerPid} ->
             case dict:find(ArrowId, Dict) of
                 {ok, TargetList} -> CallerPid ! lists:map(fun id/1, TargetList);
                 _ -> CallerPid ! []
             end,
             dag_node(Id, Dict); 
-        {all, CallerPid} ->
+        {edges, CallerPid} ->
             AllEdges = dict:to_list(Dict),
-            CallerPid ! lists:map(fun({key,Values}) ->
-                                          {key, lists:map(fun id/1, Values)}
+            CallerPid ! lists:map(fun({Key,Values}) ->
+                                          {Key, lists:map(fun id/1, Values)}
                                   end, AllEdges);
         %% add labeled edge to another process
         {add, ArrowId, TargetPid} ->

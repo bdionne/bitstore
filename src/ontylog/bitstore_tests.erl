@@ -32,11 +32,22 @@
 %%
 %%
 %%
-add_simple_link_test() ->
+add_simple_diamond_test() ->
     NameTable = load_table(diamond_spec()),
     {SubId, _} = name_to_id(d, NameTable),
     {PredId, _} = name_to_id(p, NameTable),
-    ?assert(length(bitstore:get_nodes(SubId,PredId,diamond)) =:= 2).
+    {TargetId, _} = name_to_id(a, NameTable),
+    {Cid, _} = name_to_id(c, NameTable),
+    {Bid, _} = name_to_id(b, NameTable),
+    ?assert(length(bitstore:get_role_values(SubId,PredId,diamond)) =:= 2),
+    Definition = bitstore:get_concept_def(SubId,diamond),
+    ?assert(length(Definition) =:= 1),
+    [{Key, [Val1, Val2]}] = Definition,
+    ?assert(Key =:= PredId),
+    ?assert(Val1 =:= Bid),
+    ?assert(Val2 =:= Cid),    
+    ?assert(bitstore:is_related(SubId,PredId,TargetId,diamond)),
+    ?assert(not bitstore:is_related(Cid,PredId,Bid,diamond)).
     
 
 diamond_spec() ->
