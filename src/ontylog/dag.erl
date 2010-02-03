@@ -23,7 +23,6 @@
 %%%-------------------------------------------------------------------
 -module(dag).
 -author('dionne@dionne-associates.com').
-
 %% API
 -export([build_dag/1,
          add_edge/2,
@@ -34,7 +33,6 @@
          dag_node/2]).
 
 -import(triple_store, [all_triples/1]).
-
 %%====================================================================
 %% API
 %%====================================================================
@@ -79,10 +77,7 @@ path_exists(Dag, {SubId, PredId, TargetId}) ->
     receive
         Bool ->
             Bool
-    end.
-    
-
-           
+    end.           
 
 add_edge(Dag, {SubId, PredId, ObjId}) ->
     {SubPid, Dag1} = find_or_create_pid(SubId, Dag),
@@ -116,8 +111,7 @@ id(Pid) ->
     receive
         Id ->
             Id
-    end.
-            
+    end.            
 
 dag_node(Id, Dict) ->
     receive

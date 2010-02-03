@@ -23,8 +23,11 @@ An additional store is used for the actual relationships between concepts. This 
 * Implementation
 ** enhancements to CouchDB
 *** couch httpd
-*** hovercraft
 *** couch server supervisor
+I should be able to specify new daemons in the ini file and have the sup
+load them as secondary_services. For some reason I think they new be built into
+the app spec for this to work. Otherwise they don't seem to able to see the couch_app.
++ For now I'm just loading them directly as primaries and have couch start them and mnesia
 *** jquery couch enhancements
 ** Bitstore
 *** ontylog
@@ -33,3 +36,4 @@ An additional store is used for the actual relationships between concepts. This 
 + separation of ontylog from graphs
 *** concepts as documents
 *** FTI
+

@@ -24,7 +24,6 @@
 -module(bitstore).
 -author('dionne@dionne-associates.com').
 
-
 -behaviour(gen_server).
 
 %% API
@@ -56,27 +55,24 @@
 %% Description: Starts the server
 %%--------------------------------------------------------------------
 start_link() ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+    gen_server:start_link({local, bitstore}, bitstore, [], []).
 
 %% add graph edge to existing graph
 add_role_value(SubId, PredId, ObjId, DbName) ->
-    gen_server:call(?MODULE, {add_triple, {SubId, PredId, ObjId}, DbName}, infinity).
+    gen_server:call(bitstore, {add_triple, {SubId, PredId, ObjId}, DbName}, infinity).
 
 %% delete graph edge from existing graph
 remove_role_value(SubId, PredId, ObjId, DbName) ->
-    gen_server:call(?MODULE, {remove_triple, {SubId, PredId, ObjId}, DbName}, infinity).
+    gen_server:call(bitstore, {remove_triple, {SubId, PredId, ObjId}, DbName}, infinity).
 
 get_role_values(SubId, PredId, DbName) ->
-    gen_server:call(?MODULE, {get_edge_targets, {SubId, PredId}, DbName}, infinity).
+    gen_server:call(bitstore, {get_edge_targets, {SubId, PredId}, DbName}, infinity).
 
 get_concept_def(SubId, DbName) ->
-    gen_server:call(?MODULE, {get_edges, SubId, DbName}, infinity).
+    gen_server:call(bitstore, {get_edges, SubId, DbName}, infinity).
 
 is_related(SubId,PredId,TargetId,DbName) ->
-    gen_server:call(?MODULE, {path_exists, {SubId, PredId, TargetId}, DbName}, infinity).
-
-
-    
+    gen_server:call(bitstore, {path_exists, {SubId, PredId, TargetId}, DbName}, infinity).
 
 %%====================================================================
 %% gen_server callbacks
@@ -102,11 +98,10 @@ init([]) ->
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
 handle_call({add_triple, Triplet, DbName}, _From, State) ->
-    #state{dbs=Tab} = State,
-    Dag = find_or_build_dag(Tab, DbName),
+    Dag = find_or_build_dag(State#state.dbs, DbName),
     Dag2 = add_edge(Dag, Triplet),
-    ets:insert(Tab,{DbName, Dag2}),              
-    {reply, ok, #state{dbs=Tab}};
+    ets:insert(State#state.dbs,{DbName, Dag2}),              
+    {reply, ok, State};
 handle_call({remove_triple, Triplet, DbName}, _From, State) ->
     #state{dbs=Tab} = State,
     Dag = find_or_build_dag(Tab, DbName),    
@@ -127,9 +122,6 @@ handle_call({path_exists, Triple, DbName}, _From, State) ->
     #state{dbs=Tab} = State,
     Dag = find_or_build_dag(Tab, DbName),
     {reply, path_exists(Dag, Triple), State}.
-
-    
-
 %%--------------------------------------------------------------------
 %% Function: handle_cast(Msg, State) -> {noreply, State} |
 %%                                      {noreply, State, Timeout} |

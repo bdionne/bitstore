@@ -28,6 +28,7 @@ function loadTest(file) {
 
 // keep sorted
 loadTest("index.js");
+loadTest("onty.js");
 
 
 function makeDocs(start, end, templateDoc) {
