@@ -57,39 +57,37 @@
 %% Description: Starts the server
 %%--------------------------------------------------------------------
 start_link() ->
-    gen_server:start_link({local, bitstore}, bitstore, [], []).
+    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 %% add graph edge to existing graph
 add_role_value(SubId, PredId, ObjId, DbName) ->
-    gen_server:call(bitstore, {add_triple, {SubId, PredId, ObjId}, DbName}, infinity).
+    gen_server:call(?MODULE, {add_triple, {SubId, PredId, ObjId}, DbName}, infinity).
 
 %% delete graph edge from existing graph
 remove_role_value(SubId, PredId, ObjId, DbName) ->
-    gen_server:call(bitstore, {remove_triple, {SubId, PredId, ObjId}, DbName}, infinity).
+    gen_server:call(?MODULE, {remove_triple, {SubId, PredId, ObjId}, DbName}, infinity).
 
 get_role_values(SubId, PredId, DbName) ->
-    Ids = gen_server:call(bitstore, {get_edge_targets, {SubId, PredId}, DbName}, infinity),
+    Ids = gen_server:call(?MODULE, {get_edge_targets, {SubId, PredId}, DbName}, infinity),
     lists:map(fun(I) ->
-                {ok, Doc} = open_doc(list_to_binary(atom_to_list(DbName)), list_to_binary(I)),
-                Doc
-        end, Ids).
+                      get_doc(DbName, I)
+              end, Ids).
 
 get_concept_def(SubId, DbName) ->
-    Def = gen_server:call(bitstore, {get_edges, SubId, DbName}, infinity),
+    Def = gen_server:call(?MODULE, {get_edges, SubId, DbName}, infinity),
     lists:map(fun({PredId,Vals}) ->
-                      {ok, PredDoc} = open_doc(list_to_binary(atom_to_list(DbName)), 
-                                               list_to_binary(PredId)),
-                      {[{"pred", PredDoc}, {"vals", lists:map(fun(Id) ->
-                                                  {ok, VDoc} = open_doc(list_to_binary(atom_to_list(DbName)), 
-                                               list_to_binary(Id)),
-                                                  VDoc end, Vals)}]}
+                      PredDoc = get_doc(DbName, PredId),
+                      {[{"pred", PredDoc}, {"vals", 
+                                            lists:map(fun(Id) ->
+                                                              get_doc(DbName, Id)
+                                                  end, Vals)}]}
               end, Def).
    
                       
                       
 
 is_related(SubId,PredId,TargetId,DbName) ->
-    gen_server:call(bitstore, {path_exists, {SubId, PredId, TargetId}, DbName}, infinity).
+    gen_server:call(?MODULE, {path_exists, {SubId, PredId, TargetId}, DbName}, infinity).
 
 %%====================================================================
 %% gen_server callbacks
@@ -183,3 +181,7 @@ find_or_build_dag(Tab, DbName) ->
             build_dag(DbName);
         [{DbName, ExistingDag}] -> ExistingDag
     end.
+
+get_doc(DbName, DocId) ->
+    {ok, Doc} = open_doc(list_to_binary(atom_to_list(DbName)), list_to_binary(DocId)),
+    Doc.
