@@ -97,10 +97,10 @@ remove_edge(Dag, {SubId, PredId, ObjId}) ->
 find_or_create_pid(Id,Nodes) ->
     case dict:find(Id,Nodes) of
         {ok, Pid} ->
-            io:format("found id ~n",[]),
+            %%io:format("found id ~n",[]),
             {Pid, Nodes};
         error ->
-            io:format("spawning node for ~p ~n",[Id]),
+            %%io:format("spawning node for ~p ~n",[Id]),
             Pid = spawn(?MODULE, dag_node, [Id, dict:new()]),
             NewNodes = dict:store(Id, Pid, Nodes),
             {Pid, NewNodes}            

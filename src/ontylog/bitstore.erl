@@ -38,6 +38,8 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
+-import(hovercraft, [open_doc/2]).
+
 -import(dag, [build_dag/1, 
               add_edge/2,
               remove_edge/2,
@@ -66,7 +68,13 @@ remove_role_value(SubId, PredId, ObjId, DbName) ->
     gen_server:call(bitstore, {remove_triple, {SubId, PredId, ObjId}, DbName}, infinity).
 
 get_role_values(SubId, PredId, DbName) ->
-    gen_server:call(bitstore, {get_edge_targets, {SubId, PredId}, DbName}, infinity).
+    Ids = gen_server:call(bitstore, {get_edge_targets, {SubId, PredId}, DbName}, infinity),
+    io:format(" found ~w ~n",[length(Ids)]),
+    lists:map(fun(I) ->
+                {ok, Doc} = open_doc(list_to_binary(atom_to_list(DbName)), list_to_binary(I)),
+                io:format("here it is ~w ~n",[Doc]),
+                Doc
+        end, Ids).
 
 get_concept_def(SubId, DbName) ->
     gen_server:call(bitstore, {get_edges, SubId, DbName}, infinity).

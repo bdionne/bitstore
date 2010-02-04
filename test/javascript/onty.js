@@ -45,6 +45,20 @@ couchTests.onty = function(debug) {
 
     obj = result;
 
-    T(db.addRelation(subj,pred,obj).ok);			 
+    T(db.addRelation(subj,pred,obj).ok);
+
+    result = db.getRelationValues(subj,pred);
+    T(db.last_req.status == 200);
+    T(result.total_rows == result.rows.length);
+    T(result.rows.length == 1);
+    print(result.rows[0].type);
+
+    result = db.getDefinition(subj);
+    T(db.last_req.status == 200);
+    T(result.total_rows == result.rows.length);
+    T(result.rows.length == 2);
+    print(result.rows[0].type);
+
+    
 
 };
