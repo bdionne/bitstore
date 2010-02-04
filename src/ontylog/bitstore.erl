@@ -69,15 +69,24 @@ remove_role_value(SubId, PredId, ObjId, DbName) ->
 
 get_role_values(SubId, PredId, DbName) ->
     Ids = gen_server:call(bitstore, {get_edge_targets, {SubId, PredId}, DbName}, infinity),
-    io:format(" found ~w ~n",[length(Ids)]),
     lists:map(fun(I) ->
                 {ok, Doc} = open_doc(list_to_binary(atom_to_list(DbName)), list_to_binary(I)),
-                io:format("here it is ~w ~n",[Doc]),
                 Doc
         end, Ids).
 
 get_concept_def(SubId, DbName) ->
-    gen_server:call(bitstore, {get_edges, SubId, DbName}, infinity).
+    Def = gen_server:call(bitstore, {get_edges, SubId, DbName}, infinity),
+    lists:map(fun({PredId,Vals}) ->
+                      {ok, PredDoc} = open_doc(list_to_binary(atom_to_list(DbName)), 
+                                               list_to_binary(PredId)),
+                      {[{"pred", PredDoc}, {"vals", lists:map(fun(Id) ->
+                                                  {ok, VDoc} = open_doc(list_to_binary(atom_to_list(DbName)), 
+                                               list_to_binary(Id)),
+                                                  VDoc end, Vals)}]}
+              end, Def).
+   
+                      
+                      
 
 is_related(SubId,PredId,TargetId,DbName) ->
     gen_server:call(bitstore, {path_exists, {SubId, PredId, TargetId}, DbName}, infinity).

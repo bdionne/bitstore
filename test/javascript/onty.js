@@ -53,11 +53,12 @@ couchTests.onty = function(debug) {
     T(result.rows.length == 1);
     print(result.rows[0].type);
 
-    result = db.getDefinition(subj);
-    T(db.last_req.status == 200);
-    T(result.total_rows == result.rows.length);
-    T(result.rows.length == 2);
-    print(result.rows[0].type);
+   result = db.getDefinition(subj);
+   T(db.last_req.status == 200);
+   T(result.total_rows == result.rows.length);
+   T(result.rows.length == 1);
+    print(result.rows[0].pred.name);
+    print(result.rows[0].vals[0].name);
 
     
 
