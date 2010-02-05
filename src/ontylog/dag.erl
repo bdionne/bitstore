@@ -25,6 +25,8 @@
 -author('dionne@dionne-associates.com').
 %% API
 -export([build_dag/1,
+         persist_dag/2,
+         print_dag/1,
          add_edge/2,
          remove_edge/2,
          get_edge_targets/2,
@@ -32,7 +34,8 @@
          path_exists/2,
          dag_node/2]).
 
--import(triple_store, [all_triples/1]).
+-import(triple_store, [all_triples/1, insert_tuple/4]).
+-import(lists, [foldl/3, map/2, member/2, delete/2, any/2]).
 %%====================================================================
 %% API
 %%====================================================================
@@ -47,7 +50,7 @@
 %% to lists of target nodes 
 build_dag(Table) ->
     Nodes = dict:new(),
-    lists:foldl(fun({Source,Arrow,Target}, Acc) ->
+    foldl(fun({Source,Arrow,Target}, Acc) ->
                       {SourcePid, NewAcc1} = find_or_create_pid(Source,Acc),
                       {TargetPid, NewAcc2} = find_or_create_pid(Target,NewAcc1),
                       SourcePid ! {add, Arrow, TargetPid},
@@ -55,7 +58,30 @@ build_dag(Table) ->
                       NewAcc2
               end, Nodes, all_triples(Table)).
 
+persist_dag(Dag, Table) ->
+    AllNodes = dict:to_list(Dag),
+    map(fun({_, NodePid}) ->
+                      NodePid ! {persist, Table, self()},
+                receive
+                    ok -> ok;
+                    _ -> ok
+                end
+              end, AllNodes).
+
+print_dag(Dag) ->
+    AllNodes = dict:to_list(Dag),
+    map(fun({_, NodePid}) ->
+                NodePid ! {print, self()},
+                receive
+                    ok ->
+                        ok;
+                    _ -> ok
+                end
+        end, AllNodes).
+    
+
 get_edge_targets(Dag, {SubId, PredId}) ->
+    io:format("getting vals for ~s ~s ~n",[SubId,PredId]),
     {SubPid, _} = find_or_create_pid(SubId, Dag),
     SubPid ! {edge_targets, PredId, self()},
     receive
@@ -97,10 +123,8 @@ remove_edge(Dag, {SubId, PredId, ObjId}) ->
 find_or_create_pid(Id,Nodes) ->
     case dict:find(Id,Nodes) of
         {ok, Pid} ->
-            %%io:format("found id ~n",[]),
             {Pid, Nodes};
         error ->
-            %%io:format("spawning node for ~p ~n",[Id]),
             Pid = spawn(?MODULE, dag_node, [Id, dict:new()]),
             NewNodes = dict:store(Id, Pid, Nodes),
             {Pid, NewNodes}            
@@ -115,25 +139,38 @@ id(Pid) ->
 
 dag_node(Id, Dict) ->
     receive
+        {print, CallerPid} ->
+            io:format("node: ~s ~n",[Id]),
+            AllEdges = dict:to_list(Dict),
+            map(fun({Pred, Vals}) ->
+                        io:format(" predicate: ~s ~n",[Pred]),
+                        map(fun(Val) ->
+                                    io:format("  target: ~s ~n",[id(Val)])
+                            end, Vals)
+                end, AllEdges),
+            CallerPid ! ok,
+            dag_node(Id, Dict);
         %% send the id of this node to another process
         {name, Pid} -> Pid ! Id,
                   dag_node(Id,Dict);
         {edge_targets, ArrowId, CallerPid} ->
             case dict:find(ArrowId, Dict) of
-                {ok, TargetList} -> CallerPid ! lists:map(fun id/1, TargetList);
+                {ok, TargetList} -> CallerPid ! map(fun id/1, TargetList);
                 _ -> CallerPid ! []
             end,
             dag_node(Id, Dict); 
         {edges, CallerPid} ->
             AllEdges = dict:to_list(Dict),
-            CallerPid ! lists:map(fun({Key,Values}) ->
-                                          {Key, lists:map(fun id/1, Values)}
-                                  end, AllEdges);
+            CallerPid ! map(fun({Key,Values}) ->
+                                          {Key, map(fun id/1, Values)}
+                                  end, AllEdges),
+            dag_node(Id, Dict);
         %% add labeled edge to another process
         {add, ArrowId, TargetPid} ->
             NewDict = 
                 case dict:find(ArrowId,Dict) of
                     {ok, TargetList} ->
+                        io:format("ok one already is there ~n",[]),
                         dict:store(ArrowId,[TargetPid] ++ TargetList,Dict);
                     error -> dict:store(ArrowId,[TargetPid],Dict)
                 end,
@@ -144,26 +181,37 @@ dag_node(Id, Dict) ->
             NewDict = 
                 case dict:find(ArrowId,Dict) of
                     {ok, TargetList} ->
-                        NewTargetList = case lists:member(TargetPid, TargetList) of
+                        NewTargetList = case member(TargetPid, TargetList) of
                                             true -> 
-                                                lists:delete(TargetPid, TargetList);
+                                                delete(TargetPid, TargetList);
                                             false ->
                                                 TargetList
                                         end,                                
                         dict:store(ArrowId, NewTargetList, Dict);
                     error -> Dict
                 end,
-            dag_node(Id, NewDict);        
+            dag_node(Id, NewDict);
+        %% serialize node back out to mnesia table
+        {persist, Table, CallerPid} ->
+            AllEdges = dict:to_list(Dict),
+            map(fun({Pred, Vals}) ->
+                              map(fun(Val) ->
+                                                insert_tuple(Id,Pred,id(Val),Table)
+                                        end, Vals)
+                      end, AllEdges),
+            CallerPid ! ok,
+            dag_node(Id, Dict);
+                    
         %% is node connected to another through a specific labelled
         %% edge
         {can_reach, ArrowId, TargetPid, Pid} ->
             case dict:find(ArrowId,Dict) of
                 {ok, AdjNodes} ->
-                    case lists:member(TargetPid,AdjNodes) of
+                    case member(TargetPid,AdjNodes) of
                         true -> 
                             Pid ! true;
                         false -> 
-                            case lists:any(fun(Node) ->
+                            case any(fun(Node) ->
                                                    Node ! {can_reach,
                                                            ArrowId, TargetPid,
                                                            self()},

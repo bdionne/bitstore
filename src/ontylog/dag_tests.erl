@@ -21,33 +21,37 @@
 %%%
 %%% bitstore, Copyright (C) 2009-2010   Dionne Associates, LLC.
 %%%-------------------------------------------------------------------
--module(bitstore_tests).
+-module(dag_tests).
 -author('dionne@dionne-associates.com').
 %%
 %%
 -include_lib("eunit/include/eunit.hrl").
 %%
 %%
--import(load_triple_store, [load_table/1, name_to_id/2]).
+-import(load_triple_store, [load_table/1]).
 %%
 %%
 %%
 add_simple_diamond_test() ->
     NameTable = load_table(diamond_spec()),
-    {SubId, _} = name_to_id(d, NameTable),
-    {PredId, _} = name_to_id(p, NameTable),
-    {TargetId, _} = name_to_id(a, NameTable),
-    {Cid, _} = name_to_id(c, NameTable),
-    {Bid, _} = name_to_id(b, NameTable),
-    ?assert(length(bitstore:get_role_values(SubId,PredId,diamond)) =:= 2),
-    Definition = bitstore:get_concept_def(SubId,diamond),
+    Dag = dag:build_dag(hd(diamond_spec())),
+    
+    {ok, SubId} = dict:find(d, NameTable),
+    {ok, PredId} = dict:find(p, NameTable),
+    {ok, TargetId} = dict:find(a, NameTable),
+    {ok, Cid} = dict:find(c, NameTable),
+    {ok, Bid} = dict:find(b, NameTable),
+    
+    ?assert(length(dag:get_edge_targets(Dag, {SubId,PredId})) =:= 2),
+    Definition = dag:get_edges(Dag,SubId),
     ?assert(length(Definition) =:= 1),
     [{Key, [Val1, Val2]}] = Definition,
     ?assert(Key =:= PredId),
     ?assert(Val1 =:= Bid),
     ?assert(Val2 =:= Cid),    
-    ?assert(bitstore:is_related(SubId,PredId,TargetId,diamond)),
-    ?assert(not bitstore:is_related(Cid,PredId,Bid,diamond)).
+    ?assert(dag:path_exists(Dag, {SubId,PredId,TargetId})),
+    ?assert(not dag:path_exists(Dag, {Cid,PredId,Bid})).
+    
     
 
 diamond_spec() ->

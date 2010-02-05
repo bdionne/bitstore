@@ -26,18 +26,10 @@
 %%
 %%
 %%
--export([load_table/1, name_to_id/2]).
+-export([load_table/1]).
 
 -import(triple_store, [insert_tuple/4, init/1, delete/1]).
 
-name_to_id(Name,Dict) ->
-    case dict:find(Name, Dict) of
-        {ok, Value} ->
-            {Value, Dict};
-        error -> NewId = couch_uuids:new(),
-                 NewDict = dict:store(Name, NewId, Dict),
-                 {NewId, NewDict}
-    end.
                       
 
 

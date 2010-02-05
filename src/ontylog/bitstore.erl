@@ -81,10 +81,7 @@ get_concept_def(SubId, DbName) ->
                                             lists:map(fun(Id) ->
                                                               get_doc(DbName, Id)
                                                   end, Vals)}]}
-              end, Def).
-   
-                      
-                      
+              end, Def).                      
 
 is_related(SubId,PredId,TargetId,DbName) ->
     gen_server:call(?MODULE, {path_exists, {SubId, PredId, TargetId}, DbName}, infinity).
@@ -183,5 +180,5 @@ find_or_build_dag(Tab, DbName) ->
     end.
 
 get_doc(DbName, DocId) ->
-    {ok, Doc} = open_doc(list_to_binary(atom_to_list(DbName)), list_to_binary(DocId)),
+    {ok, Doc} = open_doc(list_to_binary(atom_to_list(DbName)), DocId),
     Doc.

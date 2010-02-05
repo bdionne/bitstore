@@ -6,7 +6,7 @@
 MODS = dag load_triple_store\
        triple_store\
        bitstore\
-       bitstore_tests
+       dag_tests
 
 ERL = erl -boot start_clean 
 
