@@ -32,7 +32,8 @@
          remove_role_value/4,
          get_role_values/3,
          get_concept_def/2,
-         is_related/4]).
+         is_related/4,
+         persist_dag/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -45,7 +46,8 @@
               remove_edge/2,
               get_edge_targets/2,
               get_edges/2,
-              path_exists/2]).
+              path_exists/2,
+              persist_dag/2]).
 
 -record(state, {dbs}).
 
@@ -85,6 +87,9 @@ get_concept_def(SubId, DbName) ->
 
 is_related(SubId,PredId,TargetId,DbName) ->
     gen_server:call(?MODULE, {path_exists, {SubId, PredId, TargetId}, DbName}, infinity).
+
+persist_dag(DbName) ->
+    gen_server:call(?MODULE, {persist_dag, DbName}, infinity).
 
 %%====================================================================
 %% gen_server callbacks
@@ -133,7 +138,12 @@ handle_call({get_edges, SubId, DbName}, _From, State) ->
 handle_call({path_exists, Triple, DbName}, _From, State) ->
     #state{dbs=Tab} = State,
     Dag = find_or_build_dag(Tab, DbName),
-    {reply, path_exists(Dag, Triple), State}.
+    {reply, path_exists(Dag, Triple), State};
+handle_call({persist_dag, DbName}, _From, State) ->
+     #state{dbs=Tab} = State,
+    Dag = find_or_build_dag(Tab, DbName),
+    {reply, persist_dag(Dag, DbName), State}.   
+
 %%--------------------------------------------------------------------
 %% Function: handle_cast(Msg, State) -> {noreply, State} |
 %%                                      {noreply, State, Timeout} |
