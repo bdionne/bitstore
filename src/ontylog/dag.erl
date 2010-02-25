@@ -25,6 +25,8 @@
 -author('dionne@dionne-associates.com').
 %% API
 -export([build_dag/1,
+         find_or_create_pid/2,
+         id/1,
          persist_dag/2,
          print_dag/1,
          add_edge/2,
@@ -78,7 +80,6 @@ print_dag(Dag) ->
                     _ -> ok
                 end
         end, AllNodes).
-    
 
 get_edge_targets(Dag, {SubId, PredId}) ->
     io:format("getting vals for ~s ~s ~n",[SubId,PredId]),
@@ -195,10 +196,10 @@ dag_node(Id, Dict) ->
         {persist, Table, CallerPid} ->
             AllEdges = dict:to_list(Dict),
             map(fun({Pred, Vals}) ->
-                              map(fun(Val) ->
-                                                insert_tuple(Id,Pred,id(Val),Table)
-                                        end, Vals)
-                      end, AllEdges),
+                        map(fun(Val) ->
+                                    insert_tuple(Id,Pred,id(Val),Table)
+                            end, Vals)
+                end, AllEdges),
             CallerPid ! ok,
             dag_node(Id, Dict);
                     
