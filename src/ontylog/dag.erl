@@ -171,7 +171,7 @@ dag_node(Id, Dict) ->
             NewDict = 
                 case dict:find(ArrowId,Dict) of
                     {ok, TargetList} ->
-                        io:format("ok one already is there ~n",[]),
+                        %%io:format("ok one already is there ~n",[]),
                         dict:store(ArrowId,[TargetPid] ++ TargetList,Dict);
                     error -> dict:store(ArrowId,[TargetPid],Dict)
                 end,

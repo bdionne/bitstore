@@ -60,7 +60,6 @@ diamond_spec() ->
 
 tree_test() ->
     Dag = build_tree(1,15),
-    ?debugFmt("~w ~n",[dict:size(Dag)]),
     ?assert(dict:size(Dag) =:= 32767),
     dag:persist_dag(Dag,tree).
 
@@ -70,15 +69,18 @@ build_tree(1,N) ->
     build_tree1(2,N,[Pid],NewDag).
 
 build_tree1(I,N,PidList,Dag) ->
-    %%?debugFmt("~w ~n",[PidList]),
     NewInts = lists:seq(round(math:pow(2,(I-1))),round(math:pow(2,I)) - 1),
-    %%?debugFmt("~w ~n",[NewInts]),
-    [Dag1, NewPidList] = lists:foldl(fun(Id,Acc) ->
-                      {Pid, NewDag} = 
-                          dag:find_or_create_pid(list_to_binary(integer_to_list(Id)),hd(Acc)),
-                      ParPid = lists:nth(Id div I,PidList),
-                      [dag:add_edge(NewDag,{dag:id(Pid),<<"666">>,dag:id(ParPid)}),[Pid | hd(tl(Acc))]]
-                end,[Dag,[]],NewInts),
+    [Dag1, NewPidList] = 
+        lists:foldl(
+          fun(Id,Acc) ->
+                  {Pid, NewDag} = 
+                      dag:find_or_create_pid(list_to_binary(integer_to_list(Id)),
+                                             hd(Acc)),
+                  ParPid = lists:nth(Id div I,PidList),
+                  [dag:add_edge(NewDag,
+                                {dag:id(Pid),<<"666">>,dag:id(ParPid)}),
+                   [Pid | hd(tl(Acc))]]
+          end,[Dag,[]],NewInts),
     case I == N of
         true ->
             Dag1;
