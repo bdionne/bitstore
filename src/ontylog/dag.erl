@@ -51,12 +51,13 @@
 %% each containing a dictionary mapping labelled arrows
 %% to lists of target nodes 
 build_dag(Table) ->
+    io:format("Loading dag from mnesia ~n",[]),
     Nodes = dict:new(),
     foldl(fun({Source,Arrow,Target}, Acc) ->
                       {SourcePid, NewAcc1} = find_or_create_pid(Source,Acc),
                       {TargetPid, NewAcc2} = find_or_create_pid(Target,NewAcc1),
                       SourcePid ! {add, Arrow, TargetPid},
-                      io:format("size of nodes is ~p ~n",[dict:size(NewAcc2)]),
+                      %%io:format("size of nodes is ~p ~n",[dict:size(NewAcc2)]),
                       NewAcc2
               end, Nodes, all_triples(Table)).
 
@@ -141,10 +142,10 @@ id(Pid) ->
 dag_node(Id, Dict) ->
     receive
         {print, CallerPid} ->
-            io:format("node: ~s ~n",[Id]),
+            %%io:format("node: ~s ~n",[Id]),
             AllEdges = dict:to_list(Dict),
-            map(fun({Pred, Vals}) ->
-                        io:format(" predicate: ~s ~n",[Pred]),
+            map(fun({_Pred, Vals}) ->
+                        %%io:format(" predicate: ~s ~n",[Pred]),
                         map(fun(Val) ->
                                     io:format("  target: ~s ~n",[id(Val)])
                             end, Vals)

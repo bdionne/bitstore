@@ -185,7 +185,9 @@ code_change(_OldVsn, State, _Extra) ->
 find_or_build_dag(Tab, DbName) ->
     case ets:lookup(Tab, DbName) of
         [] ->
-            build_dag(DbName);
+            NewDag = build_dag(DbName),
+            ets:insert(Tab, {DbName, NewDag}),
+            NewDag;
         [{DbName, ExistingDag}] -> ExistingDag
     end.
 
