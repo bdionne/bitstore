@@ -83,27 +83,36 @@ print_dag(Dag) ->
         end, AllNodes).
 
 get_edge_targets(Dag, {SubId, PredId}) ->
-    io:format("getting vals for ~s ~s ~n",[SubId,PredId]),
+    %%io:format("getting vals for ~s ~s ~n",[SubId,PredId]),
     {SubPid, _} = find_or_create_pid(SubId, Dag),
     SubPid ! {edge_targets, PredId, self()},
     receive
-        Nodes -> Nodes
+        {edge_targets, Nodes} -> Nodes
     end.
 
 get_edges(Dag, SubId) ->
-    {SubPid, _} = find_or_create_pid(SubId, Dag),
-    SubPid ! {edges, self()},
-    receive
-        Definition ->
-            Definition
+    %%io:format("Im in Dag with ~w ~n",[self()]),
+    try
+
+        {SubPid, _} = find_or_create_pid(SubId, Dag),
+        SubPid ! {edges, self()},
+        receive
+            {edges, ConceptDef} ->
+                ConceptDef
+        end
+    catch
+        error:function_clause ->
+            io:format("a bug ~p ~n",[erlang:get_stacktrace()]),
+            []
     end.
+            
 
 path_exists(Dag, {SubId, PredId, TargetId}) ->
     {SubPid, _} = find_or_create_pid(SubId, Dag),
     {TargetPid, _} = find_or_create_pid(TargetId, Dag),
     SubPid ! {can_reach, PredId, TargetPid, self()},
     receive
-        Bool ->
+        {can_reach, Bool} ->
             Bool
     end.           
 
@@ -125,6 +134,7 @@ remove_edge(Dag, {SubId, PredId, ObjId}) ->
 find_or_create_pid(Id,Nodes) ->
     case dict:find(Id,Nodes) of
         {ok, Pid} ->
+            %%io:format("Pid found in call to find_or_create_pid ~n",[]),
             {Pid, Nodes};
         error ->
             Pid = spawn(?MODULE, dag_node, [Id, dict:new()]),
@@ -135,7 +145,7 @@ find_or_create_pid(Id,Nodes) ->
 id(Pid) ->
     Pid ! {name, self()},
     receive
-        Id ->
+        {name, Id} ->
             Id
     end.            
 
@@ -153,27 +163,29 @@ dag_node(Id, Dict) ->
             CallerPid ! ok,
             dag_node(Id, Dict);
         %% send the id of this node to another process
-        {name, Pid} -> Pid ! Id,
+        {name, Pid} -> Pid ! {name, Id},
                   dag_node(Id,Dict);
         {edge_targets, ArrowId, CallerPid} ->
             case dict:find(ArrowId, Dict) of
-                {ok, TargetList} -> CallerPid ! map(fun id/1, TargetList);
+                {ok, TargetList} -> CallerPid ! {edge_targets, map(fun id/1, TargetList)};
                 _ -> CallerPid ! []
             end,
             dag_node(Id, Dict); 
         {edges, CallerPid} ->
             AllEdges = dict:to_list(Dict),
-            CallerPid ! map(fun({Key,Values}) ->
+            Result = map(fun({Key,Values}) ->
                                           {Key, map(fun id/1, Values)}
                                   end, AllEdges),
+            %%io:format("Constructed results in edges message to dag_node ~w ~n",[Result]),
+            CallerPid ! {edges, Result},
             dag_node(Id, Dict);
         %% add labeled edge to another process
         {add, ArrowId, TargetPid} ->
             NewDict = 
                 case dict:find(ArrowId,Dict) of
-                    {ok, TargetList} ->
+                    {ok, _} ->
                         %%io:format("ok one already is there ~n",[]),
-                        dict:store(ArrowId,[TargetPid] ++ TargetList,Dict);
+                        dict:append(ArrowId,TargetPid,Dict);
                     error -> dict:store(ArrowId,[TargetPid],Dict)
                 end,
             dag_node(Id, NewDict);
@@ -211,7 +223,7 @@ dag_node(Id, Dict) ->
                 {ok, AdjNodes} ->
                     case member(TargetPid,AdjNodes) of
                         true -> 
-                            Pid ! true;
+                            Pid ! {can_reach, true};
                         false -> 
                             case any(fun(Node) ->
                                                    Node ! {can_reach,
@@ -221,11 +233,11 @@ dag_node(Id, Dict) ->
                                                            false -> false
                                                    end
                                            end, AdjNodes) of
-                                true -> Pid ! true;
-                                false -> Pid ! false
+                                true -> Pid ! {can_reach, true};
+                                false -> Pid ! {can_reach, false}
                             end
                     end;
-                error -> Pid ! false
+                error -> Pid ! {can_reach, false}
             end,                                                  
             dag_node(Id, Dict)
     end.
