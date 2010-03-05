@@ -53,16 +53,16 @@
 %% each containing a dictionary mapping labelled arrows
 %% to lists of target nodes 
 build_dag(Table) ->
-    io:format("Loading dag from mnesia ~n",[]),
+    %%io:format("Loading dag from mnesia ~n",[]),
     Nodes = dict:new(),
-    Nodes1 = dict:store(<<"0">>,Table,Nodes),
+    %%Nodes1 = dict:store(<<"0">>,Table,Nodes),
     foldl(fun({Source,Arrow,Target}, Acc) ->
                       {SourcePid, NewAcc1} = find_or_create_pid(Source,Acc),
                       {TargetPid, NewAcc2} = find_or_create_pid(Target,NewAcc1),
                       SourcePid ! {add, Arrow, TargetPid},
                       %%io:format("size of nodes is ~p ~n",[dict:size(NewAcc2)]),
                       NewAcc2
-              end, Nodes1, all_triples(Table)).
+              end, Nodes, all_triples(Table)).
 
 persist_dag(Dag, Table) ->
     AllNodes = dict:to_list(Dag),
@@ -86,7 +86,6 @@ print_dag(Dag) ->
         end, AllNodes).
 
 get_edge_targets(Dag, {SubId, PredId}) ->
-    %%io:format("getting vals for ~s ~s ~n",[SubId,PredId]),
     {SubPid, _} = find_or_create_pid(SubId, Dag),
     SubPid ! {edge_targets, PredId, self()},
     receive
@@ -94,7 +93,6 @@ get_edge_targets(Dag, {SubId, PredId}) ->
     end.
 
 get_edge_sources(Dag, {ObjId, PredId}) ->
-    %%io:format("getting vals for ~s ~s ~n",[SubId,PredId]),
     {ObjPid, _} = find_or_create_pid(ObjId, Dag),
     ObjPid ! {edge_sources, PredId, dict:find(<<"0">>,Dag), self()},
     receive
@@ -102,9 +100,7 @@ get_edge_sources(Dag, {ObjId, PredId}) ->
     end.
 
 get_targets(Dag, SubId) ->
-    %%io:format("Im in Dag with ~w ~n",[self()]),
     try
-
         {SubPid, _} = find_or_create_pid(SubId, Dag),
         SubPid ! {edges, self()},
         receive
@@ -117,10 +113,8 @@ get_targets(Dag, SubId) ->
             []
     end.
 
-get_sources(Dag, ObjId) ->
-    %%io:format("Im in Dag with ~w ~n",[self()]),
+get_sources(Dag, ObjId) -> 
     try
-
         {ObjPid, _} = find_or_create_pid(ObjId, Dag),
         ObjPid ! {in_edges, dict:find(<<"0">>,Dag), self()},
         receive
@@ -170,7 +164,7 @@ find_or_create_pid(Id,Nodes) ->
 id(Pid) ->
     Pid ! {name, self()},
     receive
-        {name, Id} ->
+        {my_name, Id} ->
             Id
     end.            
 
@@ -187,7 +181,7 @@ dag_node(Id, Dict) ->
             CallerPid ! ok,
             dag_node(Id, Dict);
         %% send the id of this node to another process
-        {name, Pid} -> Pid ! {name, Id},
+        {name, Pid} -> Pid ! {my_name, Id},
                   dag_node(Id,Dict);
         {edge_targets, ArrowId, CallerPid} ->
             case dict:find(ArrowId, Dict) of
@@ -252,17 +246,17 @@ dag_node(Id, Dict) ->
             case dict:find(ArrowId,Dict) of
                 {ok, AdjNodes} ->
                     case member(TargetPid,AdjNodes) of
-                        true -> 
-                            Pid ! {can_reach, true};
-                        false -> 
+                        true -> Pid ! {can_reach, true};
+                        false ->
                             case any(fun(Node) ->
-                                                   Node ! {can_reach,
-                                                           ArrowId, TargetPid,
-                                                           self()},
-                                                   receive true -> true;
-                                                           false -> false
-                                                   end
-                                           end, AdjNodes) of
+                                             Node ! {can_reach,
+                                                     ArrowId, TargetPid,
+                                                     self()},
+                                             receive {can_reach, true} -> 
+                                                     true;
+                                                     {can_reach, false} -> false
+                                             end
+                                     end, AdjNodes) of
                                 true -> Pid ! {can_reach, true};
                                 false -> Pid ! {can_reach, false}
                             end

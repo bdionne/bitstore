@@ -28,9 +28,7 @@
 %%
 -export([load_table/1]).
 
--import(triple_store, [insert_tuple/4, init/1, delete/1]).
-
-                      
+-import(triple_store, [insert_tuple/4, init/1, delete/1]).                     
 
 
 assign_ids([H | T], NodeDict, NodePairs) ->
