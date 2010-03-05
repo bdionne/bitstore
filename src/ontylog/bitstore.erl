@@ -28,10 +28,12 @@
 
 %% API
 -export([start_link/0, 
-         add_role_value/4,
-         remove_role_value/4,
-         get_role_values/3,
-         get_concept_def/2,
+         add_labeled_edge/4,
+         remove_labeled_edge/4,
+         get_labeled_targets/3,
+         get_labeled_sources/3,
+         get_targets/2,
+         get_sources/2,
          is_related/4,
          persist_dag/1]).
 
@@ -45,7 +47,7 @@
               add_edge/2,
               remove_edge/2,
               get_edge_targets/2,
-              get_edges/2,
+              get_edge_sources/2,
               path_exists/2,
               persist_dag/2]).
 
@@ -62,20 +64,27 @@ start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 %% add graph edge to existing graph
-add_role_value(SubId, PredId, ObjId, DbName) ->
+add_labeled_edge(SubId, PredId, ObjId, DbName) ->
     gen_server:call(?MODULE, {add_triple, {SubId, PredId, ObjId}, DbName}, infinity).
 
 %% delete graph edge from existing graph
-remove_role_value(SubId, PredId, ObjId, DbName) ->
+remove_labeled_edge(SubId, PredId, ObjId, DbName) ->
     gen_server:call(?MODULE, {remove_triple, {SubId, PredId, ObjId}, DbName}, infinity).
 
-get_role_values(SubId, PredId, DbName) ->
+get_labeled_targets(SubId, PredId, DbName) ->
     Ids = gen_server:call(?MODULE, {get_edge_targets, {SubId, PredId}, DbName}, infinity),
     lists:map(fun(I) ->
                       get_doc(DbName, I)
               end, Ids).
 
-get_concept_def(SubId, DbName) ->
+get_labeled_sources(ObjId, PredId, DbName) ->
+    Ids = gen_server:call(?MODULE, {get_edge_sources, {ObjId, PredId}, DbName}, infinity),
+    lists:map(fun(I) ->
+                      get_doc(DbName, I)
+              end, Ids).   
+
+
+get_targets(SubId, DbName) ->
     Def = gen_server:call(?MODULE, {get_edges, SubId, DbName}, infinity),
     lists:map(fun({PredId,Vals}) ->
                       PredDoc = get_doc(DbName, PredId),
@@ -83,7 +92,19 @@ get_concept_def(SubId, DbName) ->
                                             lists:map(fun(Id) ->
                                                               get_doc(DbName, Id)
                                                   end, Vals)}]}
-              end, Def).                      
+              end, Def).
+
+get_sources(ObjId, DbName) ->
+    Def = gen_server:call(?MODULE, {get_in_edges, ObjId, DbName}, infinity),
+    lists:map(fun({PredId,Vals}) ->
+                      PredDoc = get_doc(DbName, PredId),
+                      {[{"pred", PredDoc}, {"vals", 
+                                            lists:map(fun(Id) ->
+                                                              get_doc(DbName, Id)
+                                                  end, Vals)}]}
+              end, Def).
+    
+                      
 
 is_related(SubId,PredId,TargetId,DbName) ->
     gen_server:call(?MODULE, {path_exists, {SubId, PredId, TargetId}, DbName}, infinity).
@@ -130,10 +151,20 @@ handle_call({get_edge_targets, Pair, DbName}, _From, State) ->
     Dag = find_or_build_dag(Tab, DbName),
     Nodes = get_edge_targets(Dag, Pair),
     {reply, Nodes, State};
+handle_call({get_edge_sources, Pair, DbName}, _From, State) ->
+    #state{dbs=Tab} = State,
+    Dag = find_or_build_dag(Tab, DbName),
+    Nodes = get_edge_sources(Dag, Pair),
+    {reply, Nodes, State};
 handle_call({get_edges, SubId, DbName}, _From, State) ->
     #state{dbs=Tab} = State,
     Dag = find_or_build_dag(Tab, DbName),
-    ConceptDef = get_edges(Dag, SubId),
+    ConceptDef = dag:get_targets(Dag, SubId),
+    {reply, ConceptDef, State};
+handle_call({get_in_edges, SubId, DbName}, _From, State) ->
+    #state{dbs=Tab} = State,
+    Dag = find_or_build_dag(Tab, DbName),
+    ConceptDef = dag:get_sources(Dag, SubId),
     {reply, ConceptDef, State};
 handle_call({path_exists, Triple, DbName}, _From, State) ->
     #state{dbs=Tab} = State,
@@ -142,8 +173,7 @@ handle_call({path_exists, Triple, DbName}, _From, State) ->
 handle_call({persist_dag, DbName}, _From, State) ->
      #state{dbs=Tab} = State,
     Dag = find_or_build_dag(Tab, DbName),
-    {reply, persist_dag(Dag, DbName), State}.   
-
+    {reply, persist_dag(Dag, DbName), State}. 
 %%--------------------------------------------------------------------
 %% Function: handle_cast(Msg, State) -> {noreply, State} |
 %%                                      {noreply, State, Timeout} |

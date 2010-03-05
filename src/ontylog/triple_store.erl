@@ -29,7 +29,7 @@
 -export([init/1, delete/1, insert_tuple/4,
          all_triples/1, all_arrows/1, 
          get_source/2, get_relation/2, get_target/2,
-         get_column/4,
+         get_column/4, get_projection/3,
          get_trans_closure/4]).
 
 -include_lib("stdlib/include/qlc.hrl").

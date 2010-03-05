@@ -1,9 +1,9 @@
 %%%-------------------------------------------------------------------
 %%% File    : dag.erl
 %%% Author  : Robert Dionne
-%%%
+%%% 
 %%% This file is part of Bitstore.
-%%%
+%%% 
 %%% Bitstore is free software: you can redistribute it and/or modify
 %%% it under the terms of the GNU General Public License as published by
 %%% the Free Software Foundation, either version 3 of the License, or
@@ -32,11 +32,13 @@
          add_edge/2,
          remove_edge/2,
          get_edge_targets/2,
-         get_edges/2,
+         get_edge_sources/2,
+         get_targets/2,
+         get_sources/2,         
          path_exists/2,
          dag_node/2]).
 
--import(triple_store, [all_triples/1, insert_tuple/4]).
+-import(triple_store, [all_triples/1, insert_tuple/4, get_column/4, get_projection/3]).
 -import(lists, [foldl/3, map/2, member/2, delete/2, any/2]).
 %%====================================================================
 %% API
@@ -53,13 +55,14 @@
 build_dag(Table) ->
     io:format("Loading dag from mnesia ~n",[]),
     Nodes = dict:new(),
+    Nodes1 = dict:store(<<"0">>,Table,Nodes),
     foldl(fun({Source,Arrow,Target}, Acc) ->
                       {SourcePid, NewAcc1} = find_or_create_pid(Source,Acc),
                       {TargetPid, NewAcc2} = find_or_create_pid(Target,NewAcc1),
                       SourcePid ! {add, Arrow, TargetPid},
                       %%io:format("size of nodes is ~p ~n",[dict:size(NewAcc2)]),
                       NewAcc2
-              end, Nodes, all_triples(Table)).
+              end, Nodes1, all_triples(Table)).
 
 persist_dag(Dag, Table) ->
     AllNodes = dict:to_list(Dag),
@@ -90,7 +93,15 @@ get_edge_targets(Dag, {SubId, PredId}) ->
         {edge_targets, Nodes} -> Nodes
     end.
 
-get_edges(Dag, SubId) ->
+get_edge_sources(Dag, {ObjId, PredId}) ->
+    %%io:format("getting vals for ~s ~s ~n",[SubId,PredId]),
+    {ObjPid, _} = find_or_create_pid(ObjId, Dag),
+    ObjPid ! {edge_sources, PredId, dict:find(<<"0">>,Dag), self()},
+    receive
+        {edge_sources, Nodes} -> Nodes
+    end.
+
+get_targets(Dag, SubId) ->
     %%io:format("Im in Dag with ~w ~n",[self()]),
     try
 
@@ -105,7 +116,22 @@ get_edges(Dag, SubId) ->
             io:format("a bug ~p ~n",[erlang:get_stacktrace()]),
             []
     end.
-            
+
+get_sources(Dag, ObjId) ->
+    %%io:format("Im in Dag with ~w ~n",[self()]),
+    try
+
+        {ObjPid, _} = find_or_create_pid(ObjId, Dag),
+        ObjPid ! {in_edges, dict:find(<<"0">>,Dag), self()},
+        receive
+            {in_edges, ConceptDef} ->
+                ConceptDef
+        end
+    catch
+        error:function_clause ->
+            io:format("a bug ~p ~n",[erlang:get_stacktrace()]),
+            []
+    end.
 
 path_exists(Dag, {SubId, PredId, TargetId}) ->
     {SubPid, _} = find_or_create_pid(SubId, Dag),
@@ -127,7 +153,6 @@ remove_edge(Dag, {SubId, PredId, ObjId}) ->
     {ObjPid, Dag2} = find_or_create_pid(ObjId, Dag1),
     SubPid ! {remove, PredId, ObjPid},
     Dag2.                      
-
 %%====================================================================
 %% Internal functions
 %%====================================================================
@@ -152,7 +177,6 @@ id(Pid) ->
 dag_node(Id, Dict) ->
     receive
         {print, CallerPid} ->
-            %%io:format("node: ~s ~n",[Id]),
             AllEdges = dict:to_list(Dict),
             map(fun({_Pred, Vals}) ->
                         %%io:format(" predicate: ~s ~n",[Pred]),
@@ -170,26 +194,33 @@ dag_node(Id, Dict) ->
                 {ok, TargetList} -> CallerPid ! {edge_targets, map(fun id/1, TargetList)};
                 _ -> CallerPid ! []
             end,
-            dag_node(Id, Dict); 
+            dag_node(Id, Dict);
+        %% to get in bound links we need to go to mnesia
+        {edge_sources, ArrowId, TableName, CallerPid} ->
+            SourceIds = get_column(ArrowId, Id, source, TableName), 
+            CallerPid ! {edge_sources, SourceIds},
+            dag_node(Id, Dict);
+        %%
         {edges, CallerPid} ->
             AllEdges = dict:to_list(Dict),
             Result = map(fun({Key,Values}) ->
                                           {Key, map(fun id/1, Values)}
                                   end, AllEdges),
-            %%io:format("Constructed results in edges message to dag_node ~w ~n",[Result]),
             CallerPid ! {edges, Result},
             dag_node(Id, Dict);
+        {in_edges, TableName, CallerPid} ->
+            InEdges = get_projection(Id, target, TableName),
+            CallerPid ! {in_edges, InEdges},
+            dag_node(Id, Dict);            
         %% add labeled edge to another process
         {add, ArrowId, TargetPid} ->
             NewDict = 
                 case dict:find(ArrowId,Dict) of
                     {ok, _} ->
-                        %%io:format("ok one already is there ~n",[]),
                         dict:append(ArrowId,TargetPid,Dict);
                     error -> dict:store(ArrowId,[TargetPid],Dict)
                 end,
             dag_node(Id, NewDict);
-
         %% delete labeled edge to another process
         {remove, ArrowId, TargetPid} ->
             NewDict = 
@@ -214,8 +245,7 @@ dag_node(Id, Dict) ->
                             end, Vals)
                 end, AllEdges),
             CallerPid ! ok,
-            dag_node(Id, Dict);
-                    
+            dag_node(Id, Dict);                    
         %% is node connected to another through a specific labelled
         %% edge
         {can_reach, ArrowId, TargetPid, Pid} ->
