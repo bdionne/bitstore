@@ -54,14 +54,11 @@
 %% each containing a dictionary mapping labelled arrows
 %% to lists of target nodes 
 build_dag(Table) ->
-    %%io:format("Loading dag from mnesia ~n",[]),
     Nodes = dict:new(),
-    %%Nodes1 = dict:store(<<"0">>,Table,Nodes),
     foldl(fun({Source,Arrow,Target}, Acc) ->
                       {SourcePid, NewAcc1} = find_or_create_pid(Source,Acc),
                       {TargetPid, NewAcc2} = find_or_create_pid(Target,NewAcc1),
                       SourcePid ! {add, Arrow, TargetPid},
-                      %%io:format("size of nodes is ~p ~n",[dict:size(NewAcc2)]),
                       NewAcc2
               end, Nodes, all_triples(Table)).
 
