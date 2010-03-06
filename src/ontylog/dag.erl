@@ -29,16 +29,17 @@
          id/1,
          persist_dag/2,
          print_dag/1,
-         add_edge/2,
-         remove_edge/2,
+         add_edge/3,
+         remove_edge/3,
          get_edge_targets/2,
-         get_edge_sources/2,
+         get_edge_sources/3,
          get_targets/2,
-         get_sources/2,         
+         get_sources/3,         
          path_exists/2,
          dag_node/2]).
 
--import(triple_store, [all_triples/1, insert_tuple/4, get_column/4, get_projection/3]).
+-import(triple_store, [all_triples/1, insert_tuple/4, delete_tuple/4, 
+                       get_column/4, get_projection/3]).
 -import(lists, [foldl/3, map/2, member/2, delete/2, any/2]).
 %%====================================================================
 %% API
@@ -92,9 +93,9 @@ get_edge_targets(Dag, {SubId, PredId}) ->
         {edge_targets, Nodes} -> Nodes
     end.
 
-get_edge_sources(Dag, {ObjId, PredId}) ->
+get_edge_sources(Dag, {ObjId, PredId}, TabName) ->
     {ObjPid, _} = find_or_create_pid(ObjId, Dag),
-    ObjPid ! {edge_sources, PredId, dict:find(<<"0">>,Dag), self()},
+    ObjPid ! {edge_sources, PredId, TabName, self()},
     receive
         {edge_sources, Nodes} -> Nodes
     end.
@@ -113,10 +114,10 @@ get_targets(Dag, SubId) ->
             []
     end.
 
-get_sources(Dag, ObjId) -> 
+get_sources(Dag, ObjId, TabName) -> 
     try
         {ObjPid, _} = find_or_create_pid(ObjId, Dag),
-        ObjPid ! {in_edges, dict:find(<<"0">>,Dag), self()},
+        ObjPid ! {in_edges, TabName, self()},
         receive
             {in_edges, ConceptDef} ->
                 ConceptDef
@@ -136,16 +137,18 @@ path_exists(Dag, {SubId, PredId, TargetId}) ->
             Bool
     end.           
 
-add_edge(Dag, {SubId, PredId, ObjId}) ->
+add_edge(Dag, {SubId, PredId, ObjId}, DbName) ->
     {SubPid, Dag1} = find_or_create_pid(SubId, Dag),
     {ObjPid, Dag2} = find_or_create_pid(ObjId, Dag1),
     SubPid ! {add, PredId, ObjPid},
+    SubPid ! {add_tuple, PredId, ObjPid, DbName},
     Dag2.
 
-remove_edge(Dag, {SubId, PredId, ObjId}) ->
+remove_edge(Dag, {SubId, PredId, ObjId}, DbName) ->
     {SubPid, Dag1} = find_or_create_pid(SubId, Dag),
     {ObjPid, Dag2} = find_or_create_pid(ObjId, Dag1),
     SubPid ! {remove, PredId, ObjPid},
+    SubPid ! {remove_tuple, PredId, ObjPid, DbName},
     Dag2.                      
 %%====================================================================
 %% Internal functions
@@ -192,7 +195,10 @@ dag_node(Id, Dict) ->
         %% to get in bound links we need to go to mnesia
         {edge_sources, ArrowId, TableName, CallerPid} ->
             SourceIds = get_column(ArrowId, Id, source, TableName), 
-            CallerPid ! {edge_sources, SourceIds},
+            CallerPid ! {edge_sources, map(fun(Elem) ->
+                                                   element(1,Elem)
+                                                       end,
+                                           SourceIds)},
             dag_node(Id, Dict);
         %%
         {edges, CallerPid} ->
@@ -215,6 +221,9 @@ dag_node(Id, Dict) ->
                     error -> dict:store(ArrowId,[TargetPid],Dict)
                 end,
             dag_node(Id, NewDict);
+        {add_tuple, ArrowId, TargetPid, Table} ->
+            insert_tuple(Id, ArrowId, id(TargetPid), Table),
+            dag_node(Id, Dict);
         %% delete labeled edge to another process
         {remove, ArrowId, TargetPid} ->
             NewDict = 
@@ -230,6 +239,9 @@ dag_node(Id, Dict) ->
                     error -> Dict
                 end,
             dag_node(Id, NewDict);
+        {remove_tuple, ArrowId, TargetPid, Table} ->
+            delete_tuple(Id, ArrowId, id(TargetPid), Table),
+            dag_node(Id, Dict);
         %% serialize node back out to mnesia table
         {persist, Table, CallerPid} ->
             AllEdges = dict:to_list(Dict),

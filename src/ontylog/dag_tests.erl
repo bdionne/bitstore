@@ -34,32 +34,23 @@
 %%
 add_simple_diamond_test() ->
     NameTable = load_table(diamond_spec()),
-    %%io:format("table loaded ~n",[]),
     Dag = dag:build_dag(hd(diamond_spec())),
-    %%io:format("dag built ~n",[]),
     
     {ok, SubId} = dict:find(d, NameTable),
     {ok, PredId} = dict:find(p, NameTable),
     {ok, TargetId} = dict:find(a, NameTable),
     {ok, Cid} = dict:find(c, NameTable),
     {ok, Bid} = dict:find(b, NameTable),
-
-    %%io:format("ids are ~p ~p ~n",[Bid, Cid]),
         
     ?assert(length(dag:get_edge_targets(Dag, {SubId,PredId})) =:= 2),
     Definition = dag:get_targets(Dag,SubId),
-    %%io:format("definition ~p ~n",[Definition]),
     ?assert(length(Definition) =:= 1),
     [{Key, Vals}] = Definition,
-    %%io:format("vals are ~p ~n",[Vals]),
     ?assert(Key =:= PredId),
     ?assert(lists:member(Bid, Vals)),
     ?assert(lists:member(Cid, Vals)),
-    %%io:format("checking paths ~n",[]),
     ?assert(dag:path_exists(Dag, {SubId,PredId,TargetId})),
-    %%io:format("checking no paths ~n",[]),
     ?assert(not dag:path_exists(Dag, {Cid,PredId,Bid})).
-    %%io:format("done this test ~n",[]).
 
 diamond_spec() ->
     [diamond, [{d, p, c},

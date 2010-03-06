@@ -27,6 +27,7 @@
 %%
 %%
 -export([init/1, delete/1, insert_tuple/4,
+         delete_tuple/4,
          all_triples/1, all_arrows/1, 
          get_source/2, get_relation/2, get_target/2,
          get_column/4, get_projection/3,
@@ -50,6 +51,13 @@ delete(Table) ->
 insert_tuple(Source, Arrow, Target, Table) ->
     mnesia:transaction(fun() ->
 		  mnesia:write(Table,#triple{source = Source,
+				arrow = Arrow,
+				target = Target},write)
+	  end).
+
+delete_tuple(Source, Arrow, Target, Table) ->
+    mnesia:transaction(fun() ->
+		  mnesia:delete(Table,#triple{source = Source,
 				arrow = Arrow,
 				target = Target},write)
 	  end).

@@ -44,10 +44,10 @@
 -import(hovercraft, [open_doc/2]).
 
 -import(dag, [build_dag/1, 
-              add_edge/2,
-              remove_edge/2,
+              add_edge/3,
+              remove_edge/3,
               get_edge_targets/2,
-              get_edge_sources/2,
+              get_edge_sources/3,
               path_exists/2,
               persist_dag/2]).
 
@@ -137,13 +137,13 @@ init([]) ->
 %%--------------------------------------------------------------------
 handle_call({add_triple, Triplet, DbName}, _From, State) ->
     Dag = find_or_build_dag(State#state.dbs, DbName),
-    Dag2 = add_edge(Dag, Triplet),
+    Dag2 = add_edge(Dag, Triplet, DbName),
     ets:insert(State#state.dbs,{DbName, Dag2}),              
     {reply, ok, State};
 handle_call({remove_triple, Triplet, DbName}, _From, State) ->
     #state{dbs=Tab} = State,
     Dag = find_or_build_dag(Tab, DbName),    
-    Dag2 = remove_edge(Dag, Triplet),
+    Dag2 = remove_edge(Dag, Triplet, DbName),
     ets:insert(Tab,{DbName, Dag2}),              
     {reply, ok, #state{dbs=Tab}};
 handle_call({get_edge_targets, Pair, DbName}, _From, State) ->
@@ -154,7 +154,7 @@ handle_call({get_edge_targets, Pair, DbName}, _From, State) ->
 handle_call({get_edge_sources, Pair, DbName}, _From, State) ->
     #state{dbs=Tab} = State,
     Dag = find_or_build_dag(Tab, DbName),
-    Nodes = get_edge_sources(Dag, Pair),
+    Nodes = get_edge_sources(Dag, Pair, DbName),
     {reply, Nodes, State};
 handle_call({get_edges, SubId, DbName}, _From, State) ->
     #state{dbs=Tab} = State,
@@ -164,7 +164,7 @@ handle_call({get_edges, SubId, DbName}, _From, State) ->
 handle_call({get_in_edges, SubId, DbName}, _From, State) ->
     #state{dbs=Tab} = State,
     Dag = find_or_build_dag(Tab, DbName),
-    ConceptDef = dag:get_sources(Dag, SubId),
+    ConceptDef = dag:get_sources(Dag, SubId, DbName),
     {reply, ConceptDef, State};
 handle_call({path_exists, Triple, DbName}, _From, State) ->
     #state{dbs=Tab} = State,

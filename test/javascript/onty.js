@@ -60,6 +60,14 @@ couchTests.onty = function(debug) {
     print(result.rows[0].pred.name);
     print(result.rows[0].vals[0].name);
 
+  //T(db.ontySave().ok);
+
+    result = db.getInvRelationValues(pred,obj);
+    T(db.last_req.status == 200);
+    T(result.total_rows == result.rows.length);
+    T(result.rows.length == 1);
+    print(result.rows[0].type);
+
     
 
 };
