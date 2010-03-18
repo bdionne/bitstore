@@ -34,7 +34,8 @@
          get_edge_targets/2,
          get_edge_sources/3,
          get_targets/2,
-         get_sources/3,         
+         get_sources/3,
+         get_roots/3,
          path_exists/2,
          dag_node/2]).
 
@@ -124,6 +125,11 @@ get_sources(Dag, ObjId, TabName) ->
             io:format("a bug ~p ~n",[erlang:get_stacktrace()]),
             []
     end.
+
+get_roots(_Dag, PredId, TabName) ->
+    triple_store:get_roots(PredId, TabName).
+    
+    
 
 path_exists(Dag, {SubId, PredId, TargetId}) ->
     {SubPid, _} = find_or_create_pid(SubId, Dag),
@@ -249,7 +255,7 @@ dag_node(Id, Dict) ->
                 end, AllEdges),
             CallerPid ! ok,
             dag_node(Id, Dict);                    
-        %% is node connected to another through a specific labelled
+        %% is node connected to another through a specific labeled
         %% edge
         {can_reach, ArrowId, TargetPid, Pid} ->
             case dict:find(ArrowId,Dict) of

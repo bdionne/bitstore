@@ -34,6 +34,7 @@
          get_labeled_sources/3,
          get_targets/2,
          get_sources/2,
+         get_roots/2,
          is_related/4,
          persist_dag/1]).
 
@@ -48,6 +49,7 @@
               remove_edge/3,
               get_edge_targets/2,
               get_edge_sources/3,
+              get_roots/3,
               path_exists/2,
               persist_dag/2]).
 
@@ -96,15 +98,15 @@ get_targets(SubId, DbName) ->
 
 get_sources(ObjId, DbName) ->
     Def = gen_server:call(?MODULE, {get_in_edges, ObjId, DbName}, infinity),
-    lists:map(fun({PredId,Vals}) ->
-                      PredDoc = get_doc(DbName, PredId),
-                      {[{"pred", PredDoc}, {"vals", 
-                                            lists:map(fun(Id) ->
-                                                              get_doc(DbName, Id)
-                                                  end, Vals)}]}
+    lists:map(fun({SubId,PredId}) ->
+                      {[{"subj", get_doc(DbName, SubId)},{"pred", get_doc(DbName,PredId)}]}
               end, Def).
-    
-                      
+
+get_roots(Pred, DbName) ->
+    Ids = gen_server:call(?MODULE, {get_roots, Pred, DbName}, infinity),
+    lists:map(fun(I) ->
+                      get_doc(DbName, I)
+              end, Ids).                      
 
 is_related(SubId,PredId,TargetId,DbName) ->
     gen_server:call(?MODULE, {path_exists, {SubId, PredId, TargetId}, DbName}, infinity).
@@ -166,6 +168,11 @@ handle_call({get_in_edges, SubId, DbName}, _From, State) ->
     Dag = find_or_build_dag(Tab, DbName),
     ConceptDef = dag:get_sources(Dag, SubId, DbName),
     {reply, ConceptDef, State};
+handle_call({get_roots, PredId, DbName}, _From, State) ->
+    #state{dbs=Tab} = State,
+    Dag = find_or_build_dag(Tab, DbName),
+    Ids = dag:get_roots(Dag, PredId, DbName),
+    {reply, Ids, State};
 handle_call({path_exists, Triple, DbName}, _From, State) ->
     #state{dbs=Tab} = State,
     Dag = find_or_build_dag(Tab, DbName),

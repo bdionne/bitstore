@@ -25,16 +25,16 @@ couchTests.onty = function(debug) {
     T(result.id);
     T(result.rev); 
 
-    pred = result;
+  //pred = result;
 
-    var subj = {name : "aspirin", type : "concept"};
+  var subj = {name : "aspirin", type : "concept", Preferred_Name : "Willow Bark"};
     result = db.save(subj);
 
     T(result.ok==true); 
     T(result.id);
     T(result.rev); 
     
-    subj = result;
+  //subj = result;
 
     var obj = {name : "drug", type : "concept"};
     result = db.save(obj);
@@ -43,7 +43,7 @@ couchTests.onty = function(debug) {
     T(result.id);
     T(result.rev);
 
-    obj = result;
+  //obj = result;
 
     T(db.addRelation(subj,pred,obj).ok);
 
@@ -67,6 +67,20 @@ couchTests.onty = function(debug) {
     T(result.total_rows == result.rows.length);
     T(result.rows.length == 1);
     print(result.rows[0].type);
+    print(result.rows[0]._id);
+    print(result.rows[0].Preferred_Name);
+
+  //var db_big = new CouchDB("biomedgtnew", {"X-Couch-Full-Commit":"true"});
+  result = db.getRoots(pred);
+  T(db.last_req.status == 200);
+  print(result.rows[0].type);
+   T(result.total_rows == 1);
+
+  var new_subj = {name : "tylenol", type : "concept", Preferred_Name : "Willow Bark Plus"};
+    result = db.save(new_subj);
+
+   T(db.addRelation(new_subj,pred,obj).ok);
+    
 
     
 

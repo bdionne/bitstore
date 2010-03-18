@@ -23,11 +23,18 @@ function init(){
     var getTree = (function() {
         var i = 0;
         return function(nodeId, level) {
-          var subtree = eval('(' + json.replace(/id:\"([a-zA-Z0-9]+)\"/g, 
+          //alert(nodeId);
+          var is = '(' + json.replace(/id:\"([a-zA-Z0-9]+)\"/g, 
           function(all, match) {
             return "id:\"" + match + "_" + i + "\""  
-          }) + ')');
+              }) + ')';
+          //alert(is);
+          var subtree = eval(is);
+          //alert(subtree);
           TreeUtil.prune(subtree, level); i++;
+
+          //alert(subtree.children + " are of length " + subtree.children.length);
+          //alert(subtree.children[0].name);
           return {
               'id': nodeId,
               'children': subtree.children
@@ -81,7 +88,7 @@ function init(){
         levelDistance: 50,
         //set max levels to show. Useful when used with
         //the request method for requesting trees of specific depth
-        levelsToShow: 2,
+        levelsToShow: 1,
         //set node and edge styles
         //set overridable=true for styling individual
         //nodes or edges
@@ -114,6 +121,7 @@ function init(){
         //Here we just use a client-side tree generator (the getTree function).
         request: function(nodeId, level, onComplete) {
           var ans = getTree(nodeId, level);
+          //alert(ans.name + " the kids " + ans.children);
           onComplete.onComplete(nodeId, ans);  
         },
         

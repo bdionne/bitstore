@@ -31,21 +31,24 @@
          all_triples/1, all_arrows/1, 
          get_source/2, get_relation/2, get_target/2,
          get_column/4, get_projection/3,
-         get_trans_closure/4]).
+         get_trans_closure/4, get_roots/2]).
 
 -include_lib("stdlib/include/qlc.hrl").
 -include("triple.hrl").
 
 init(Table) ->
+    io:format("building table newly ~w ~n",[Table]),
     mnesia:create_table(Table,
                         [{disc_copies,
 			  [node()]},
 			 {type, bag},
+                         {local_content, true},
                          {record_name, triple},
 			 {attributes,
 			  record_info(fields, triple)}]).
 
 delete(Table) ->
+    io:format("deleting table ~w ~n",[Table]),
     mnesia:del_table_copy(Table, node()).
 
 insert_tuple(Source, Arrow, Target, Table) ->
@@ -125,7 +128,30 @@ get_column(Match1, Match2, Column, Table) ->
                 qlc:e(Q)
         end,
     element(2, mnesia:transaction(F)).
-                
+
+get_roots(Relation, Table) ->
+    Q1 = qlc:q([element(2, Pair) ||
+                           Pair <- get_relation(Relation, Table)]),
+
+    Q2 = qlc:q([Edge#triple.source 
+			   || Edge <- mnesia:table(Table)], {unique, true}),
+
+    NodesInRel = element(2, mnesia:transaction(
+                              fun() ->
+                                      qlc:e(Q1)
+                              end)),
+
+    Nodes = element(2, mnesia:transaction(
+                                  fun() ->
+                                          qlc:e(Q2)
+                                  end)), 
+        
+    lists:filter(fun(Elem) ->
+                      not lists:member(Elem, Nodes)
+                 end,sets:to_list(sets:from_list(NodesInRel))).
+    
+    
+
 
 get_relation(Relation, Table) ->
     get_projection(Relation, arrow, Table).
