@@ -12,7 +12,7 @@ Over the years, as we've used description logic based systems for terminology wo
 
 Much of this has little to do with description logic, yet to date the approaches we've taken have all made use of data structures, database schemas and so forth that are designed to support primarily the inferencing capabilities of the particular logic.
 ** Overview
-These notes are intended to document the prototyping and implementation of bitstore. The next section provides a high level description of the architecture and is followed by detailed notes on the implementation. As each approach to the major pieces is tried, metric will be employed to determine the efficacy and adherence to the stated goals. This project is somewhat ambitious in that the goal is to take ontylog up an order of magnitude in scalability whilst also reworking the fundamentals of terminology development to better support schema evolution, federation and collaboration.
+These notes are intended to document the prototyping and implementation of bitstore. The next section provides a high level description of the architecture and is followed by detailed notes on the implementation. As each approach to the major pieces is tried, metrics will be employed to determine the efficacy and adherence to the stated goals. This project is somewhat ambitious in that the goal is to take ontylog up an order of magnitude in scalability whilst also reworking the fundamentals of terminology development to better support schema evolution, federation and collaboration.
 
 * Architecture
 ** Concepts as Documents

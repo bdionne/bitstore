@@ -59,7 +59,7 @@
 	<key>mainDocumentEditor.navHistory</key>
 	<dict>
 		<key>CurrentIndex</key>
-		<integer>57</integer>
+		<integer>61</integer>
 		<key>NavigationHistoryArray</key>
 		<array>
 			<dict>
@@ -361,6 +361,30 @@
 				<integer>0</integer>
 				<key>Mode</key>
 				<integer>2</integer>
+			</dict>
+			<dict>
+				<key>BinderDocID</key>
+				<integer>3</integer>
+				<key>Mode</key>
+				<integer>0</integer>
+			</dict>
+			<dict>
+				<key>BinderDocID</key>
+				<integer>5</integer>
+				<key>Mode</key>
+				<integer>0</integer>
+			</dict>
+			<dict>
+				<key>BinderDocID</key>
+				<integer>3</integer>
+				<key>Mode</key>
+				<integer>0</integer>
+			</dict>
+			<dict>
+				<key>BinderDocID</key>
+				<integer>5</integer>
+				<key>Mode</key>
+				<integer>0</integer>
 			</dict>
 			<dict>
 				<key>BinderDocID</key>
