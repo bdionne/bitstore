@@ -78,7 +78,7 @@ build_tree1(I,N,PidList,Dag) ->
                                              hd(Acc)),
                   ParPid = lists:nth(Id div I,PidList),
                   [dag:add_edge(NewDag,
-                                {dag:id(Pid),<<"666">>,dag:id(ParPid)}),
+                                {dag:id(Pid),<<"666">>,dag:id(ParPid)},tree),
                    [Pid | hd(tl(Acc))]]
           end,[Dag,[]],NewInts),
     case I == N of

@@ -80,8 +80,4 @@ couchTests.onty = function(debug) {
     result = db.save(new_subj);
 
    T(db.addRelation(new_subj,pred,obj).ok);
-    
-
-    
-
 };
