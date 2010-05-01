@@ -142,9 +142,7 @@ get_all_docs(DbName, Options) ->
                                   end
                           end, {?BATCH_SIZE + 1,[]}, Options),
     Docs = element(2,Result),
-
     Bool = length(Docs) < ?BATCH_SIZE + 1,
-
     case length(Docs) of
         0 -> [];
         _ -> case Bool of
@@ -202,10 +200,7 @@ store_stats(DbName, LastSeq, DocCount) ->
         {[{<<"_id">>, <<"db_stats">>},
           {<<"last_seq">>, LastSeq},
           {<<"doc_count">>, DocCount}]},
-    hovercraft:save_doc(DbName, NewDoc).
-
-
-    
+    hovercraft:save_doc(DbName, NewDoc).    
 
 read_last_seq(DbName) ->
     {ok, Doc} = lookup_doc(<<"db_stats">>, DbName),

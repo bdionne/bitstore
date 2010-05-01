@@ -16,57 +16,34 @@ function addEvent(obj, type, fn) {
 
 function init(){
   var db = new CouchDB("biomedgtnew", {"X-Couch-Full-Commit":"true"});
-  //var isa_pred = db.open("6776ae29980ce9b2b243a4683b032dff");
-  //var isa_pred = db.open("12e3051b908224686fcf7ea3bd031c43");
-  //var isa_pred = db.open("6776ae29980ce9b2b243a4683b032dff");
-  //var isa_pred = db.open("0e370708005d8bb206046e406e002ed7");
   var isa_pred = db.open("6776ae29980ce9b2b243a4683b032dff");
-  //var isa_pred = db.open("48daa7d79ba5a269c76d25d6d300079a");
-
-  
-
-
-  //alert(isa_pred._id);
-
   var result = db.getRoots(isa_pred);
-
-  // alert("there are " + result.rows.length + " roots");
 
   var roots = [];
 
   for (var i = 0; i < result.rows.length; i++) {
 
     roots[i] = "{id:\"" + result.rows[i]._id +
-               "\", name:\"" + result.rows[i].code +
-      "\", data:{}, children:[]}";
-    
+               "\", name:\"" + result.rows[i].name +
+      "\", data:{}, children:[]}";   
 
   }
 
   
   
   var json = "{id:\"root\", name:\"Thing\", data:{}, children:[" + roots + "]}";
-
-  //alert(json);
     
     //A client-side tree generator
     var getTree = (function() {
         var i = 0;
         return function(nodeId, level) {
-          // alert("calling for " + nodeId + "  " + level);
           result = db.getInvRelationValues(isa_pred,{"_id": nodeId});
           var sub_nodes = [];
           for (var i = 0; i < result.rows.length; i++) {
             sub_nodes[i] = eval('(' + "{id:\"" + result.rows[i]._id +
-               "\", name:\"" + result.rows[i].code +
+               "\", name:\"" + result.rows[i].name +
                                 "\", data:{}, children:[]}" + ')');
-            //alert(sub_nodes[i]);
-          }
-
-          //alert(sub_nodes + " of length " + sub_nodes.length);
-
-          //alert(sub_nodes[0].id);
-          
+          }          
           return {
               'id': nodeId,
                 'children': sub_nodes
@@ -125,8 +102,8 @@ function init(){
         //set overridable=true for styling individual
         //nodes or edges
         Node: {
-            height: 20,
-            width: 60,
+          //height: 20,
+          //width: 60,
             //use a custom
             //node rendering function
             type: 'nodeline',
@@ -226,29 +203,5 @@ function init(){
     st.compute();
     //emulate a click on the root node.
     st.onClick(st.root);
-    //end
-    //Add event handlers to switch spacetree orientation.
-   function get(id) {
-      return document.getElementById(id);  
-    };
-
-    var top = get('r-top'), 
-    left = get('r-left'), 
-    bottom = get('r-bottom'), 
-    right = get('r-right');
-    
-    function changeHandler() {
-        if(this.checked) {
-            top.disabled = bottom.disabled = right.disabled = left.disabled = true;
-            st.switchPosition(this.value, "animate", {
-                onComplete: function(){
-                    top.disabled = bottom.disabled = right.disabled = left.disabled = false;
-                }
-            });
-        }
-    };
-    
-    top.onchange = left.onchange = bottom.onchange = right.onchange = changeHandler;
-    //end
 
 }
