@@ -36,7 +36,7 @@ init(DbIndexName, X) ->
     end.
 
 already_exists(DocId, DbName) ->
-    CheckExists = indexer_couchdb_crawler:lookup_doc(DocId, DbName),
+    CheckExists = indexer_couchdb_crawler:lookup_doc_bitcask(DocId, DbName),
     case CheckExists of
         not_found ->
             false;
@@ -56,7 +56,7 @@ resume(DbIndexName) ->
     end.
 
 recover(DbIndexName, ChkpNameBin) ->
-    {ok, ChkpDoc} = indexer_couchdb_crawler:lookup_doc(ChkpNameBin, DbIndexName),
+    {ok, ChkpDoc} = indexer_couchdb_crawler:lookup_doc_bitcask(ChkpNameBin, DbIndexName),
     proplists:get_value(<<"chkp">>,element(1,ChkpDoc)).
 
 checkpoint({DbIndexName, Next}, X) ->

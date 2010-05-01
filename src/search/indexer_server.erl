@@ -114,7 +114,8 @@ handle_call(next_docs, _From, S) ->
 	{docs, Docs, ContToCkP} ->
 	    {reply, {ok, Docs}, S#env{chkp=ContToCkP}};
 	done ->
-            indexer_couchdb_crawler:compact_index(S#env.idx),
+            %% bitcask presumably doesn't need compaction??
+            %%indexer_couchdb_crawler:compact_index(S#env.idx),
 	    {reply, done, S}
     end;
 handle_call(changes, _From, S) ->

@@ -157,7 +157,7 @@ poll_for_changes(Pid) ->
             
                 
 possibly_stop(Pid) ->
-    case indexer_server:should_i_stop(Pid) of
+    case indexer_server:should_i_stop(Pid) of 
 	true ->
 	    ?LOG(?INFO, "Stopping~n", []),
 	    done;
