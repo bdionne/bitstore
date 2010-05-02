@@ -24,19 +24,19 @@
 %%                             %% X is a term
 %%  checkpoint(Check, X) ->    %% Set a new checkpoint
 %%     Check'
-init(DbIndexName, X) ->
+init(Db, X) ->
     One = <<"check1">>,
     Two = <<"check2">>,
-    case already_exists(One, DbIndexName) or already_exists(Two, DbIndexName) of
+    case already_exists(One, Db) or already_exists(Two, Db) of
 	true ->
 	    exit(eBadInit);
 	false ->
-	    checkpoint({DbIndexName, 1}, X),
-	    checkpoint({DbIndexName, 2}, X)
+	    checkpoint({Db, 1}, X),
+	    checkpoint({Db, 2}, X)
     end.
 
-already_exists(DocId, DbName) ->
-    CheckExists = indexer_couchdb_crawler:lookup_doc_bitcask(DocId, DbName),
+already_exists(DocId, Db) ->
+    CheckExists = indexer_couchdb_crawler:lookup_doc_bitcask(DocId, Db),
     case CheckExists of
         not_found ->
             false;
@@ -44,28 +44,28 @@ already_exists(DocId, DbName) ->
             true
     end.
 
-resume(DbIndexName) ->
-    R1 = recover(DbIndexName, <<"check1">>),
-    R2 = recover(DbIndexName, <<"check2">>),
+resume(Db) ->
+    R1 = recover(Db, <<"check1">>),
+    R2 = recover(Db, <<"check2">>),
     case {R1, R2} of
 	{error, error}               -> error;
-	{error, _}                   -> {{DbIndexName,1}, element(2, R2)};
-	{_, error}                   -> {{DbIndexName,2}, element(2, R1)};
-	{{T1,X},{T2,_}} when T1 > T2 -> {{DbIndexName,2}, X};
-	{_,{_,X}}                    -> {{DbIndexName,1}, X}
+	{error, _}                   -> {{Db, 1}, R2};
+	{_, error}                   -> {{Db, 2}, R1};
+	{{T1,X},{T2,_}} when T1 > T2 -> {{Db, 2}, X};
+	{_,{_,X}}                    -> {{Db, 1}, X}
     end.
 
-recover(DbIndexName, ChkpNameBin) ->
-    {ok, ChkpDoc} = indexer_couchdb_crawler:lookup_doc_bitcask(ChkpNameBin, DbIndexName),
+recover(Db, ChkpNameBin) ->
+    {ok, ChkpDoc} = indexer_couchdb_crawler:lookup_doc_bitcask(ChkpNameBin, Db),
     proplists:get_value(<<"chkp">>,element(1,ChkpDoc)).
 
-checkpoint({DbIndexName, Next}, X) ->
+checkpoint({Db, Next}, X) ->
     %%?LOG(?DEBUG, "creating checkpoint for:~p ~p ~p ~n", [DbIndexName, Next, X]),
     DocId = list_to_binary("check" ++ integer_to_list(Next)),
     Time = now(),
     B = {Time, X},
-    indexer_couchdb_crawler:store_chkp(DocId, B, DbIndexName),
-    {DbIndexName, 3-Next}.
+    indexer_couchdb_crawler:store_chkp(DocId, B, Db),
+    {Db, 3-Next}.
 
 test() ->
     Cont = indexer_couchdb_crawler:start(<<"fti">>,[{reset, <<"fti-idx">>}]),

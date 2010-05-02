@@ -26,7 +26,8 @@
 %%
 -export([start/2, 
          next/1,
-         db_exists/1, 
+         index_exists/1,
+         open_index/1,
          store_chkp/3,
          read_last_seq/1,
          read_doc_count/1,
@@ -48,21 +49,20 @@
 -define(BATCH_SIZE, 1000).
 
 start(DbName, [{reset, DbIndexName}]) ->
-    %%hovercraft:delete_db(DbIndexName),
-    %%hovercraft:create_db(DbIndexName), 
-    os:cmd("rm -rf " ++ binary_to_list(DbIndexName)),
+    os:cmd("rm -rf " ++ DbIndexName),
     {ok, #db{update_seq=LastSeq}} = hovercraft:open_db(DbName),
     {ok, DbInfo} = hovercraft:db_info(DbName),
     DocCount = proplists:get_value(doc_count,DbInfo),
-    store_stats(DbIndexName, LastSeq, DocCount),
-    {DbName, 0}.
+    Db = open_index(DbIndexName),
+    store_stats(Db, LastSeq, DocCount),
+    [Db, {DbName, 0}].
 
-db_exists(DbName) ->
-    case hovercraft:open_db(DbName) of
-        {ok, _} ->
-            true;
-        _ -> false
-    end.
+index_exists(DbName) ->
+    filelib:is_dir(DbName).
+
+open_index(DbIndexName) ->
+    bitcask:open(DbIndexName, [read_write]).
+    
 
 next({DbName, StartId}) ->
     Docs = case StartId of
@@ -175,22 +175,17 @@ lookup_doc(Id, DbName) ->
         _:_ -> not_found
     end.
 
-lookup_doc_bitcask(Id, DbName) ->
+lookup_doc_bitcask(Id, Db) ->
     try
-        Db = bitcask:open(binary_to_list(DbName), [read]),
         {ok, Val} = bitcask:get(Db,Id),
         {ok, binary_to_term(Val)}
     catch
         _:_ -> not_found
     end.
-
-%% compact_index(DbName) ->    
-%%     {ok, Db} = hovercraft:open_db(DbName),
-%%     couch_db:start_compact(Db).
     
 
-store_chkp(DocId, B, DbName) ->
-    NewDoc = case lookup_doc_bitcask(DocId, DbName) of
+store_chkp(DocId, B, Db) ->
+    NewDoc = case lookup_doc_bitcask(DocId, Db) of
                  {ok, Doc} ->
                      Props = element(1, Doc),
                      NewProps = proplists:delete(<<"chkp">>, Props),
@@ -201,19 +196,18 @@ store_chkp(DocId, B, DbName) ->
                      {[{<<"_id">>, DocId},
                                 {<<"chkp">>, B}]}
              end,
-    store_in_cask(DbName,DocId,NewDoc).
+    store_in_cask(Db,DocId,NewDoc).
 
-store_in_cask(DbName,Key,Val) ->
-    Db = bitcask:open(binary_to_list(DbName), [read_write]),
-    bitcask:put(Db,Key,term_to_binary(Val)),
-    bitcask:close(Db).
+store_in_cask(Db,Key,Val) ->
+    %%io:format("~w, ~w, ~n",[Key, Val]),
+    bitcask:put(Db,Key,term_to_binary(Val)).
     
     
 
-write_last_seq(DbName, LastSeq) ->
+write_last_seq(Db, LastSeq) ->
    
     NewDoc =
-        case lookup_doc_bitcask(<<"db_stats">>, DbName) of
+        case lookup_doc_bitcask(<<"db_stats">>, Db) of
             {ok, Doc} ->
                 Props = element(1, Doc),
                 NewProps = proplists:delete(<<"last_seq">>, Props),
@@ -223,39 +217,39 @@ write_last_seq(DbName, LastSeq) ->
                 {[{<<"_id">>, <<"db_stats">>},
                   {<<"last_seq">>, LastSeq}]}
         end,
-    store_in_cask(DbName,<<"db_stats">>,NewDoc).
+    store_in_cask(Db,<<"db_stats">>,NewDoc).
 
-store_stats(DbName, LastSeq, DocCount) ->
+store_stats(Db, LastSeq, DocCount) ->
     NewDoc = 
         {[{<<"_id">>, <<"db_stats">>},
           {<<"last_seq">>, LastSeq},
           {<<"doc_count">>, DocCount}]},
-    store_in_cask(DbName,<<"db_stats">>,NewDoc).
+    store_in_cask(Db,<<"db_stats">>,NewDoc).
 
-read_last_seq(DbName) ->
-    {ok, Doc} = lookup_doc_bitcask(<<"db_stats">>, DbName),
+read_last_seq(Db) ->
+    {ok, Doc} = lookup_doc_bitcask(<<"db_stats">>, Db),
     proplists:get_value(<<"last_seq">>,element(1,Doc)).
 
-read_doc_count(DbName) ->
-    {ok, Doc} = lookup_doc_bitcask(<<"db_stats">>, DbName),
+read_doc_count(Db) ->
+    {ok, Doc} = lookup_doc_bitcask(<<"db_stats">>, Db),
     proplists:get_value(<<"doc_count">>,element(1,Doc)).
 
-lookup_indices(Word, DbName) ->
-    case lookup_doc_bitcask(list_to_binary(Word), DbName) of
+lookup_indices(Word, Db) ->
+    case lookup_doc_bitcask(list_to_binary(Word), Db) of
         {ok, Doc} -> proplists:get_value(<<"indices">>,element(1, Doc));
         not_found -> []
     end.
  
-write_bulk(MrListS, DbName) ->
+write_bulk(MrListS, Db) ->
     lists:map(fun({Key, Vals}) ->
-                      Doc = prep_doc(Key, Vals, DbName),
-                      store_in_cask(DbName,list_to_binary(Key),Doc)
+                      Doc = prep_doc(Key, Vals, Db),
+                      store_in_cask(Db,list_to_binary(Key),Doc)
               end, MrListS).
     
   
-write_indices(Word, Vals, DbName) ->
+write_indices(Word, Vals, Db) ->
     BinWord = list_to_binary(Word),
-    NewDoc = case lookup_doc_bitcask(BinWord, DbName) of
+    NewDoc = case lookup_doc_bitcask(BinWord, Db) of
                  {ok, Doc} -> 
                      Props = element(1, Doc),
                      Indices = proplists:get_value(<<"indices">>, Props),
@@ -266,10 +260,10 @@ write_indices(Word, Vals, DbName) ->
                      {[{<<"_id">>, BinWord},
                        {<<"indices">>,Vals}]}
              end,
-    store_in_cask(DbName,BinWord,NewDoc).
+    store_in_cask(Db,BinWord,NewDoc).
 
-prep_doc(Word, Vals, DbName) ->
-   case lookup_doc_bitcask(list_to_binary(Word), DbName) of
+prep_doc(Word, Vals, Db) ->
+   case lookup_doc_bitcask(list_to_binary(Word), Db) of
         {ok, Doc} -> 
             Props = element(1, Doc),
             Indices = proplists:get_value(<<"indices">>, Props),
@@ -284,8 +278,8 @@ prep_doc(Word, Vals, DbName) ->
     end.
     
 
-delete_indices(Word, Vals, DbName) ->
-    case lookup_doc_bitcask(list_to_binary(Word), DbName) of
+delete_indices(Word, Vals, Db) ->
+    case lookup_doc_bitcask(list_to_binary(Word), Db) of
         {ok, Doc} -> 
             Props = element(1, Doc),
             Indices = proplists:get_value(<<"indices">>, Props),
@@ -296,7 +290,7 @@ delete_indices(Word, Vals, DbName) ->
             NewDoc = 
                 {lists:append(NewProps, 
                               [{<<"indices">>,NewIndices}])},
-            store_in_cask(DbName,list_to_binary(Word),NewDoc);
+            store_in_cask(Db,list_to_binary(Word),NewDoc);
         not_found -> ok
     end.
     

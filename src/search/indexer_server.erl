@@ -85,23 +85,24 @@ init(DbName) ->
     Tab = indexer_trigrams:open(),
     DbIndexName = list_to_binary(DbName ++ "-idx"),
    
-    case indexer_couchdb_crawler:db_exists(DbIndexName) of
-        true -> ok;
-        false ->
-            Cont = 
-                indexer_couchdb_crawler:start(
-                  list_to_binary(DbName),[{reset, DbIndexName}]),
-	    Check = {DbIndexName, Cont},
-	    ?LOG(?INFO, "creating checkpoint:~p~n", [Check]),
-	    indexer_checkpoint:init(DbIndexName, Check)
-    end,
+    Db = case indexer_couchdb_crawler:index_exists(binary_to_list(DbIndexName)) of
+             true -> indexer_couchdb_crawler:open_index(binary_to_list(DbIndexName));
+             false ->
+                 [Db1, Cont] = 
+                     indexer_couchdb_crawler:start(
+                       list_to_binary(DbName),[{reset, binary_to_list(DbIndexName)}]),
+                 %%Check = {DbIndexName, Cont},
+                 ?LOG(?INFO, "creating checkpoint:~p~n", [Cont]),
+                 indexer_checkpoint:init(Db1, Cont),
+                 Db1
+         end,
     
-    {Next, {_, Cont1}} = indexer_checkpoint:resume(DbIndexName),
+    {Next, Cont1} = indexer_checkpoint:resume(Db),
     ?LOG(?INFO, "resuming checkpoint: ~p ~p~n",[Next, Cont1]),
     
     {ok, #env{ets=Tab,
                       dbnam=list_to_binary(DbName),
-                      idx=DbIndexName,
+                      idx=Db,
                       cont=Cont1,
                       nextCP=Next,
                       chkp=Cont1}}.
@@ -127,8 +128,8 @@ handle_call(db_name, _From, S) ->
     {reply, S#env.dbnam, S};
 handle_call(checkpoint, _From, S) ->
     Next = S#env.nextCP,
-    DbIndexName = S#env.idx,
-    Next1 = indexer_checkpoint:checkpoint(Next, {DbIndexName, S#env.chkp}),
+    %%Db = S#env.idx,
+    Next1 = indexer_checkpoint:checkpoint(Next, S#env.chkp),
     S1 = S#env{nextCP = Next1, cont=S#env.chkp},
     {reply, ok, S1};
 handle_call({checkpoint, changes, LastSeq}, _From, S) ->
