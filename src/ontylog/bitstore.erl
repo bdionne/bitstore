@@ -126,6 +126,7 @@ persist_dag(DbName) ->
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
 init([]) ->
+    application:start(mnesia),
     {ok, #state{dbs=ets:new(dbnames_graphs,[set])}}.
 
 %%--------------------------------------------------------------------
