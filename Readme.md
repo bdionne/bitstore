@@ -87,7 +87,7 @@ It's fairly easy to view a triple store as a labelled graph, where each triple <
 
 ### Full Text Indexing
 
-We've also added FTI to Bitstore, embedding the [work](http://github.com/bdionne/indexer) based on the ideas in the Armstrong book. Currently we index all the values in all the docs and then use the changes api to incrementally update the indices. Separate indices are kept for each database and stored as couchdb databases. You would think storing an inverted index in a couchdb would be kind of write heavy, and it is, but compaction handles this nicely and it's quite adequate for standalone single user usage, a typical scenario for the ontology developer.
+We've also added FTI to Bitstore, embedding the [work](http://github.com/bdionne/bitstore/tree/bitcask/src/search) based on the ideas in the Armstrong book. Currently we index all the values in all the docs and then use the changes api to incrementally update the indices. Originally we stored the indices as couch dbs, which works surprisingly well, but we've been expirementing with different back ends. Currently we are using [bitcask](http://github.com/basho/bitcask) which is an append only key value store. So far the performance of this is excellent. It has a merge opertaion which accomplishes the same function as couchdb's compact. This is necessary when writing an inverted index as the same records are written often.
 
 So basically:
 
@@ -98,6 +98,39 @@ Or more generally:
     bitstore = couchdb + graph database + FTI + ontylog
 
 One should be able to ignore the DL component ontylog and use it simply as a graph database, or use inference engine other than ontylog
+
+### Building
+
+As mentioned above, in order to build and run a slightly modified version of [couchdb](http://github.com/bdionne/couchdb/tree/bitstore) is needed. For best results bitstore and couchdb should be installed at the same level in the file system, .eg.
+
+    ~/emacs/couchdb
+    ~/emacs/bitstore
+
+Bitcask is also needed:
+
+    ~/emacs/bitcask
+
+Bitcask is easy to build, just type make in the top level. You can modify the rebar.config to use git for a dependency bitcask needs (ebloom) if you don't have hg installed
+
+The changes to the couchdb config file that are needed are [here](http://github.com/bdionne/bitstore/blob/bitcask/config/couch.ini) and can be added to local_dev.ini in couchdb/etc/couchdb. The two daemons, indexer and bitstore each have their own make
+
+    cd ~/emacs/bitstore/src/ontylog
+    ... make
+    cd ../search
+    ... make
+
+a copy of ~/emacs/bitstore/src/couchdb/couch_httpd\_bitstore.erl should be placed in ~/emacs/couchch/src/couchdb and an entry added to ~/emacs/couchdb/src/couchdb/Makefile.am. This has already been done if you checkout the couchdb branch mentioned above.
+
+The hardest part is starting couch correctly with all the needed paths. 
+
+    cd ~/emacs/couchdb
+
+    ERL_FLAGS="-sname couch@localhost +P 100000 -pa ../bitstore/src/search -pa ../bitstore/src/ontylog -pa ../bitcask/ebin -pa ../bitcask/deps/ebloom/ebin -mnesia dir \'"tmp/foo"\'" ./utils/run -i
+
+Notice the command use relative paths to pick up files from the bitstore project. Mnesia is only required for the ontylog piece. If you're just interested in FTI you can ignore it
+
+
+
 
 ### Opinion
 
