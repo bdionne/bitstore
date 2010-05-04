@@ -5,7 +5,8 @@
 
 MODS = indexer_checkpoint  indexer_porter\
        indexer_words indexer_couchdb_crawler indexer_server\
-       indexer indexer_misc indexer_trigrams
+       indexer indexer_misc indexer_trigrams\
+       hovercraft
 
 ERL = erl -boot start_clean 
 

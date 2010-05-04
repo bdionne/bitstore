@@ -18,7 +18,7 @@
 
 -export([foreach_word_in_string/3, 
 	 mapreduce/4, search/4]).
--import(lists, [filter/2, foreach/2, map/2, reverse/1]).
+-import(lists, [filter/2, foreach/2, map/2, reverse/1, foldl/3]).
 
 -include("indexer.hrl").
 
@@ -88,13 +88,34 @@ collect_replies(N, Dict) ->
     receive
         {'EXIT', _,  _Why} ->
 	    collect_replies(N-1, Dict);
-	{Key, Val} ->
+	{Key, Val, SlotNum} ->
             case dict:is_key(Key, Dict) of
 		true ->
-		    Dict1 = dict:append(Key, Val, Dict),
-		    collect_replies(N, Dict1);
+                    DocIds = dict:fetch(Key,Dict),
+                    ValExists = lists:any(fun({DocId, _}) ->
+                                                  case DocId of
+                                                      Val -> true;
+                                                      _ -> false
+                                                  end
+                                          end,DocIds),
+                    case ValExists of
+                        true ->
+                            NewDocIds = lists:map(fun({DocId,SlotNums}) ->
+                                                  case DocId of
+                                                      Val ->
+                                                          {DocId, [SlotNum | SlotNums]};
+                                                      _ -> {DocId, SlotNums}
+                                                  end
+                                          end, DocIds),
+                            Dict1 = dict:erase(Key,Dict),
+                            Dict2 = dict:store(Key,NewDocIds,Dict1),
+                            collect_replies(N, Dict2);
+                        _ ->
+                            Dict1 = dict:append(Key,{Val, [SlotNum]},Dict),
+                            collect_replies(N, Dict1)
+                    end;                    
 		false ->
-		    Dict1 = dict:store(Key,[Val], Dict),
+		    Dict1 = dict:store(Key,[{Val,[SlotNum]}], Dict),
 		    collect_replies(N, Dict1)
 	    end
 	
@@ -112,8 +133,15 @@ search(Str, Ets, DbName, Idx) ->
     Words1 = [W || {yes, W} <- L1],
     Indices = 
         map(fun(I) -> 
-                    indexer_couchdb_crawler:lookup_indices(I, Idx) end, Words1),
-    Sets = [sets:from_list(X) || X <- Indices, X =/= []],
+                    {I, indexer_couchdb_crawler:lookup_indices(I, Idx)} end, Words1),
+
+    DocIds = map(fun(Pair) ->
+                         map(fun(Tuple) ->
+                                     element(1, Tuple)
+                             end, element(2, Pair))
+                 end, Indices),
+    %%io:format("~w ~n",[DocIds]),
+    Sets = [sets:from_list(X) || X <- DocIds],
     case Sets of 
 	[] ->
 	    none;
@@ -128,10 +156,17 @@ search(Str, Ets, DbName, Idx) ->
             end,
             map(fun(I) ->
                         {ok, Doc} = hovercraft:open_doc(DbName, I),
-                        Doc
+                        append_slots(Doc, I, Indices)
                 end, IndicesToReturn)
 	    
     end.
+
+append_slots(Doc, Id, Indices) ->
+    {foldl(fun(Pair,Acc) ->
+                  Word = element(1,Pair),
+                  Slots = proplists:get_value(Id,element(2,Pair)),
+                  lists:append(Acc,[{Word,Slots}])
+          end,element(1,Doc),Indices)}.
 
         
             
