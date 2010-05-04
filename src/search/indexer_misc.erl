@@ -165,7 +165,7 @@ append_slots(Doc, Id, Indices) ->
     {foldl(fun(Pair,Acc) ->
                   Word = element(1,Pair),
                   Slots = proplists:get_value(Id,element(2,Pair)),
-                  lists:append(Acc,[{Word,Slots}])
+                  lists:append(Acc,[{list_to_binary(Word),list_to_binary(Slots)}])
           end,element(1,Doc),Indices)}.
 
         
