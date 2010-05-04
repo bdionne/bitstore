@@ -163,6 +163,7 @@ handle_cast(stop, S) ->
     {stop, normal, S}.
 
 terminate(Reason, S) ->
+    indexer_couchdb_crawler:close_index(S#env.idx),
     Ets = S#env.ets,
     indexer_trigrams:close(Ets),
     ?LOG(?INFO, "stopping ~p~n",[Reason]).

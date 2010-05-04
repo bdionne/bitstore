@@ -28,6 +28,7 @@
          next/1,
          index_exists/1,
          open_index/1,
+         close_index/1,
          store_chkp/3,
          read_last_seq/1,
          read_doc_count/1,
@@ -36,7 +37,6 @@
          get_previous_version/2,
          get_deleted_docs/2,
          lookup_doc_bitcask/2,
-         %%compact_index/1,
          lookup_indices/2, 
          write_indices/3,
          write_bulk/2,
@@ -61,8 +61,10 @@ index_exists(DbName) ->
     filelib:is_dir(DbName).
 
 open_index(DbIndexName) ->
-    bitcask:open(DbIndexName, [read_write]).
-    
+    bitcask:open(DbIndexName, [read_write, {max_file_size, 100000000}]).
+
+close_index(Db) ->
+    bitcask:close(Db).    
 
 next({DbName, StartId}) ->
     Docs = case StartId of
@@ -74,7 +76,6 @@ next({DbName, StartId}) ->
         [] -> done;
         {Cont, Docs1} -> {docs, Docs1, {DbName, Cont}}
     end.
-
 
 open_by_id_btree(DbName) ->
     {ok, #db{fd=Fd}} = hovercraft:open_db(DbName),
@@ -199,13 +200,9 @@ store_chkp(DocId, B, Db) ->
     store_in_cask(Db,DocId,NewDoc).
 
 store_in_cask(Db,Key,Val) ->
-    %%io:format("~w, ~w, ~n",[Key, Val]),
-    bitcask:put(Db,Key,term_to_binary(Val)).
-    
-    
+    bitcask:put(Db,Key,term_to_binary(Val)).    
 
-write_last_seq(Db, LastSeq) ->
-   
+write_last_seq(Db, LastSeq) ->   
     NewDoc =
         case lookup_doc_bitcask(<<"db_stats">>, Db) of
             {ok, Doc} ->

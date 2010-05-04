@@ -10,16 +10,6 @@
     start_chunked_response/3, absolute_uri/2, send/2,
     start_response_length/4]).
 
-%% -record(doc_query_args, {
-%%     options = [],
-%%     rev = nil,
-%%     open_revs = [],
-%%     update_type = interactive_edit,
-%%     atts_since = nil
-%% }).
-
-
-
 db_req(#httpd{method='GET',path_parts=[_,<<"_index_query">>]}=Req, Db) ->
     Word = couch_httpd:qs_value(Req, "word","foo"),
     Docs = indexer:search(?b2l(Db#db.name), Word),    

@@ -14,7 +14,7 @@
 %%
 %% this is changed considerably from the book. It's been made into a gen_server
 %% that maintains a hash of indexer_servers, one for each couchdb being indexed
-%% or queried. The indexers work in batch as well as incrmental mode, requiring
+%% or queried. The indexers work in batch as well as incremental mode, requiring
 %% two types of map/reduce functions
 %%
 %%% Copyright (C) 2009   Dionne Associates, LLC.
@@ -61,7 +61,6 @@ handle_call({start, DbName}, _From, State) ->
     spawn_link(
       fun() -> 
               couch_task_status:add_task(<<"Indexing Database">>, DbName, <<"Starting">>),
-              %%couch_task_status:set_update_frequency(500),
               worker(Pid, 0),
               couch_task_status:update("Complete")
       end),

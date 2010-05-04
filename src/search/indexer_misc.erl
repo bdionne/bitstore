@@ -120,15 +120,17 @@ search(Str, Ets, DbName, Idx) ->
 	_ ->
 	    Unique = sets:intersection(Sets),
 	    Indices1 = sets:to_list(Unique),
+            IndicesToReturn = 
 	    case length(Indices1) of
-		N when N > 200 ->
-		    tooMany;
-		_ -> 
-                    map(fun(I) ->
-                                {ok, Doc} = hovercraft:open_doc(DbName, I),
-                                Doc
-                        end, Indices1)
-	    end
+		N when N > 100 ->
+                    lists:sublist(Indices1,100);
+		_ -> Indices1
+            end,
+            map(fun(I) ->
+                        {ok, Doc} = hovercraft:open_doc(DbName, I),
+                        Doc
+                end, IndicesToReturn)
+	    
     end.
 
         
