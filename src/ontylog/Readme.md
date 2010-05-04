@@ -10,7 +10,7 @@ Ontylog was designed with scalability in mind, willingly sacrificing expressivit
 
 Classification algorithms, which compute the subsumption relation, as implemented in ontlyog, involve walking around in a directed acyclic graph. So when a relational database is used for persistence the O-R mapping problem rears it's ugly head. The key to solving this was to recognize that much of the character data relating to terms, annotation properties, names, etc.. were not needed for classification. So the classification graphs of concepts could be serialized and stored in simple relational tables. 
 
-For various practical reasons touched on in the [overview](http://github.com/bdionne/bitstore/blob/master/Readme.md) of bitstore, this new implementation is going to take a further step and completely separate the logical inferencing from the management of the terminologies by treating concepts as simply independent documents. This will enable different reasoners to be used for each database.
+For various practical reasons touched on in the [overview](http://github.com/bdionne/bitstore/blob/bitcask/Readme.md) of bitstore, this new implementation is going to take a further step and completely separate the logical inferencing from the management of the terminologies by treating concepts as simply independent documents. This will enable different reasoners to be used for each database.
 
 ### Every node in a classification dag is an erlang process
 

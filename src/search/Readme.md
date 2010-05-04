@@ -36,7 +36,7 @@ Since everything needed to support indexing is in a couchdb db, one can just del
 
 I think Lucene is pretty much state of the art these days for Java-based text indexing but I've been thinking it'd be nice to have something more native to CouchDB and have been curious as to how well Erlang can handle this. I'm also interested in semantic search and eventually plan to integrate search with ontylog, so that "myocardial infarction" can be found when searching "heart attack"
 
-Currently we index all the slot values, skipping the reserved _xxx slots and the slot names. CouchDB is schema-less but presumably in most dbs docs would be fairly homogenous in having the same slot names across multiple docs. We also don't require the user to declare viewsthat are used to construct what gets indexed. This is the normal approach with Lucene style indexing. We just index everything and think it might be useful to allow filters to be defined that run over the search results.
+Currently we index all the slot values, skipping the reserved _xxx slots and the slot names. CouchDB is schema-less but presumably in most dbs docs would be fairly homogenous in having the same slot names across multiple docs. We also don't require the user to declare views that are used to construct what gets indexed. This is the normal approach with Lucene style indexing. We just index everything and think it might be useful to allow filters to be defined that run over the search results.
 
 We now track which fields in the docs contain the search strings as well so that clients can support text highligting. This also allows the results to be filtered. This will likely be best supported via integration with the query_server similar to the shows capability.
 
@@ -49,11 +49,7 @@ Queries can also be run with the REST API:
 
 ## Next TODOs
 
-* add some APIs at the HTTP level
-
-As noted above the indexer can be started for a database using:
-
-    curl -X POST http://127.0.0.1:5984/biomedgt/_index
+* filter query results using user-defined JS functions
 
 
 
