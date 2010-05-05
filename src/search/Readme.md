@@ -2,7 +2,7 @@
 
 Chapter 20 of Joe Armstrong's <a href="http://www.pragprog.com/titles/jaerlang/programming-erlang">Erlang book</a> provides a nice example of the use of processes to do full text indexing with map/reduce. The essential idea is to spawn a process for each document to index and let the reduce function populate the inverted index as it collects the results of the map phase. 
 
-The first version of this used a couch db to stroe the inverted index, this verison uses bitcask. A gen_server is started in couch as a daemon whic will start a different gen_server for each database ot be indexed. It uses a modified version of <a href="http://github.com/jchris/hovercraft">hovercraft</a> to interact with couch and provide the docs in <a href="http://github.com/bdionne/bitstore/blob/bitcast/src/search/indexer_couchdb_crawler.erl">batches</a> to be analyzed. The inverted index is stored in a bitcask which has the same same as the db with a "-idx" suffix.
+The first version of this used a couch db to stroe the inverted index, this verison uses bitcask. A gen\_server is started in couch as a daemon which will start a different gen\_server for each database to be indexed. It uses a modified version of <a href="http://github.com/jchris/hovercraft">hovercraft</a> to interact with couch and provide the docs in <a href="http://github.com/bdionne/bitstore/blob/bitcask/src/search/indexer_couchdb_crawler.erl">batches</a> to be analyzed. The inverted index is stored in a bitcask which has the same same as the db with a "-idx" suffix.
 
 Assuming this is built and run as specified in the main [Readme.md](http://github.com/bdionne/bitstore/tree/bitcask), the indexer can be started on a database from the command line, .e.g.:
 
@@ -30,7 +30,7 @@ again and it resumes. Note that it actually first schedules the stop so that any
 
 ## Still quite buggy
 
-Since everything needed to support indexing is in a couchdb db, one can just delete the "db_name-idx" database to start over
+Since everything needed to support indexing is in a bitcask, one can just delete the "db_name-idx" directory to start over
 
 ## Motivation and Ideas
 
