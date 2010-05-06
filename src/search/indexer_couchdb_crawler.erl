@@ -317,6 +317,10 @@ db_info(DbName) ->
 %%--------------------------------------------------------------------
 open_doc(DbName, DocId) ->
     {ok, Db} = open_db(DbName),
-    CouchDoc = couch_httpd_db:couch_doc_open(Db, DocId, nil, []),
-    Doc = couch_doc:to_json_obj(CouchDoc, []),
-    {ok, Doc}.
+    try
+        CouchDoc = couch_httpd_db:couch_doc_open(Db, DocId, nil, []),
+        Doc = couch_doc:to_json_obj(CouchDoc, []),
+        {ok, Doc}
+    after
+        catch couch_db:close(Db)
+    end.
