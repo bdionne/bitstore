@@ -2,7 +2,7 @@
 
 Chapter 20 of Joe Armstrong's <a href="http://www.pragprog.com/titles/jaerlang/programming-erlang">Erlang book</a> provides a nice example of the use of processes to do full text indexing with map/reduce. The essential idea is to spawn a process for each document to index and let the reduce function populate the inverted index as it collects the results of the map phase. 
 
-The first version of this used a couch db to stroe the inverted index, this verison uses bitcask. A gen\_server is started in couch as a daemon which will start a different gen\_server for each database to be indexed. It uses a modified version of <a href="http://github.com/jchris/hovercraft">hovercraft</a> to interact with couch and provide the docs in <a href="http://github.com/bdionne/bitstore/blob/bitcask/src/search/indexer_couchdb_crawler.erl">batches</a> to be analyzed. The inverted index is stored in a bitcask which has the same same as the db with a "-idx" suffix.
+The first version of this used a couch db to store the inverted index, this verison uses bitcask. A gen\_server is started in couch as a daemon which will start a different gen\_server for each database to be indexed. The first version used a modified version of <a href="http://github.com/jchris/hovercraft">hovercraft</a> to interact with couch and provide the docs in batches. This version incorporates the hovercraft functionality in the <a href="http://github.com/bdionne/bitstore/blob/bitcask/src/search/indexer_couchdb_crawler.erl">crawler</a> as it needs to access the changes layer.  The inverted index is stored in a bitcask which has the same same as the db with a "-idx" suffix.
 
 Assuming this is built and run as specified in the main [Readme.md](http://github.com/bdionne/bitstore/tree/bitcask), the indexer can be started on a database from the command line, .e.g.:
 
@@ -38,7 +38,7 @@ I think Lucene is pretty much state of the art these days for Java-based text in
 
 Currently we index all the slot values, skipping the reserved _xxx slots and the slot names. CouchDB is schema-less but presumably in most dbs docs would be fairly homogenous in having the same slot names across multiple docs. We also don't require the user to declare views that are used to construct what gets indexed. This is the normal approach with Lucene style indexing. We just index everything and think it might be useful to allow filters to be defined that run over the search results.
 
-We now track which fields in the docs contain the search strings as well so that clients can support text highligting. This also allows the results to be filtered. This will likely be best supported via integration with the query_server similar to the shows capability.
+We now track which fields in the docs contain the search strings as well so that clients can support text highligting. This also allows the results to be filtered. This will likely be best supported via integration with the query_server engine similar to the shows and lists capabilities.
 
 This is still largely a prototype, to explore the issues with FTI in erlang running in the couchdb VM.
 With the new bitcask back end we now indeinx the 65K concepts of biomedgt in under a minute. This is roughly 300M of text. What's even more impressive is the search speed. Incrmental type ahead search is good. 
