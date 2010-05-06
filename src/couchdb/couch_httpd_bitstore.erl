@@ -69,10 +69,6 @@ db_req(#httpd{method=Method,path_parts=[_,<<"_onty">>]}=Req, Db) ->
     end,
     send_json(Req, 202, {[{ok, true}]}).
 
-
-
-
-
 %% bitstore hacks
 handle_index_req(#httpd{method='POST'}=Req, Db) ->
     Stop = couch_httpd:qs_value(Req, "stop","false"),

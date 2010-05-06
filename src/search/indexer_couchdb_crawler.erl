@@ -47,11 +47,12 @@
 -include("indexer.hrl").
 
 -define(BATCH_SIZE, 1000).
+-define(ADMIN_USER_CTX, {user_ctx, #user_ctx{roles=[<<"_admin">>]}}).
 
 start(DbName, [{reset, DbIndexName}]) ->
     os:cmd("rm -rf " ++ DbIndexName),
-    {ok, #db{update_seq=LastSeq}} = hovercraft:open_db(DbName),
-    {ok, DbInfo} = hovercraft:db_info(DbName),
+    {ok, #db{update_seq=LastSeq}} = open_db(DbName),
+    {ok, DbInfo} = db_info(DbName),
     DocCount = proplists:get_value(doc_count,DbInfo),
     Db = open_index(DbIndexName),
     store_stats(Db, LastSeq, DocCount),
@@ -78,7 +79,7 @@ next({DbName, StartId}) ->
     end.
 
 open_by_id_btree(DbName) ->
-    {ok, #db{fd=Fd}} = hovercraft:open_db(DbName),
+    {ok, #db{fd=Fd}} = open_db(DbName),
     {ok, Header} = couch_file:read_header(Fd),
     {ok, IdBtree} = 
         couch_btree:open(Header#db_header.fulldocinfo_by_id_btree_state, Fd,
@@ -86,7 +87,7 @@ open_by_id_btree(DbName) ->
     IdBtree.   
 
 get_changes_since(DbName, SeqNum) ->   
-    {ok, #db{update_seq=LastSeq}=Db} = hovercraft:open_db(DbName),
+    {ok, #db{update_seq=LastSeq}=Db} = open_db(DbName),
     {ok, DocInfos} = 
         couch_db:changes_since(Db, all_docs, SeqNum,
                                fun(DocInfos, Acc) ->
@@ -115,7 +116,7 @@ get_changes_since(DbName, SeqNum) ->
 get_previous_version(Ids, DbName) ->
     lists:map(
       fun(Id) ->
-              {ok, Db} = hovercraft:open_db(DbName),
+              {ok, Db} = open_db(DbName),
               DocWithRevs =
                   couch_doc:to_json_obj(couch_httpd_db:couch_doc_open(
                                           Db, Id, nil, [revs]),[revs]),
@@ -171,7 +172,7 @@ get_all_docs(DbName, Options) ->
 lookup_doc(Id, DbName) ->
     try
         
-        hovercraft:open_doc(DbName, Id)
+        open_doc(DbName, Id)
     catch
         _:_ -> not_found
     end.
@@ -292,10 +293,30 @@ delete_indices(Word, Vals, Db) ->
     end.
     
     
-    
+%% functions from Hovercraft    
               
 
 
 
 
 
+open_db(DbName) ->
+    couch_db:open(DbName, [?ADMIN_USER_CTX]).
+
+%%--------------------------------------------------------------------
+%% Function: db_info(DbName) -> {ok,Db} | {error,Error}
+%% Description: Gets the db_info as a proplist
+%%--------------------------------------------------------------------
+db_info(DbName) ->
+    {ok, Db} = open_db(DbName),
+    couch_db:get_db_info(Db).
+
+%%--------------------------------------------------------------------
+%% Function: open_doc(DbName, DocId) -> {ok,Doc} | {error,Error}
+%% Description: Gets the eJSON form of the Document
+%%--------------------------------------------------------------------
+open_doc(DbName, DocId) ->
+    {ok, Db} = open_db(DbName),
+    CouchDoc = couch_httpd_db:couch_doc_open(Db, DocId, nil, []),
+    Doc = couch_doc:to_json_obj(CouchDoc, []),
+    {ok, Doc}.

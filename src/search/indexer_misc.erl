@@ -155,7 +155,7 @@ search(Str, Ets, DbName, Idx) ->
 		_ -> Indices1
             end,
             map(fun(I) ->
-                        {ok, Doc} = hovercraft:open_doc(DbName, I),
+                        {ok, Doc} = indexer_couchdb_crawler:open_doc(DbName, I),
                         append_slots(Doc, I, Indices)
                 end, IndicesToReturn)
 	    
