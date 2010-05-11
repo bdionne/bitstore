@@ -89,7 +89,6 @@ code_change(_OldVsn, State, _Extra) ->
 
 worker(Pid, WorkSoFar) ->
     case possibly_stop(Pid) of
-
         void -> 
             ?LOG(?INFO, "retrieving next batch ~n",[]),
             Tbeg = now(),
@@ -119,11 +118,8 @@ worker(Pid, WorkSoFar) ->
                     %% and start polling for new updates to the db
                     couch_task_status:update
                       ("batch indexing complete, monitoring for changes"),
-                    poll_for_changes(Pid)
-                    
+                    poll_for_changes(Pid)                    
             end
-            
-
     end.
 
 poll_for_changes(Pid) ->

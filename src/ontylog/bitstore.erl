@@ -42,8 +42,6 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--import(hovercraft, [open_doc/2]).
-
 -import(dag, [build_dag/1, 
               add_edge/3,
               remove_edge/3,
@@ -52,6 +50,9 @@
               get_roots/3,
               path_exists/2,
               persist_dag/2]).
+
+-include("../../../couchdb/src/couchdb/couch_db.hrl").
+-define(ADMIN_USER_CTX, {user_ctx, #user_ctx{roles=[<<"_admin">>]}}).
 
 -record(state, {dbs}).
 
@@ -232,3 +233,22 @@ find_or_build_dag(Tab, DbName) ->
 get_doc(DbName, DocId) ->
     {ok, Doc} = open_doc(list_to_binary(atom_to_list(DbName)), DocId),
     Doc.
+
+
+open_db(DbName) ->
+    couch_db:open(DbName, [?ADMIN_USER_CTX]).
+
+
+%%--------------------------------------------------------------------
+%% Function: open_doc(DbName, DocId) -> {ok,Doc} | {error,Error}
+%% Description: Gets the eJSON form of the Document
+%%--------------------------------------------------------------------
+open_doc(DbName, DocId) ->
+    {ok, Db} = open_db(DbName),
+    try
+        CouchDoc = couch_httpd_db:couch_doc_open(Db, DocId, nil, []),
+        Doc = couch_doc:to_json_obj(CouchDoc, []),
+        {ok, Doc}
+    after
+        catch couch_db:close(Db)
+    end.

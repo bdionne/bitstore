@@ -26,6 +26,7 @@
 %%
 -export([start/2, 
          next/1,
+         open_doc/2,
          index_exists/1,
          open_index/1,
          close_index/1,
@@ -183,8 +184,7 @@ lookup_doc_bitcask(Id, Db) ->
         {ok, binary_to_term(Val)}
     catch
         _:_ -> not_found
-    end.
-    
+    end.    
 
 store_chkp(DocId, B, Db) ->
     NewDoc = case lookup_doc_bitcask(DocId, Db) of
@@ -242,8 +242,7 @@ write_bulk(MrListS, Db) ->
     lists:map(fun({Key, Vals}) ->
                       Doc = prep_doc(Key, Vals, Db),
                       store_in_cask(Db,list_to_binary(Key),Doc)
-              end, MrListS).
-    
+              end, MrListS).    
   
 write_indices(Word, Vals, Db) ->
     BinWord = list_to_binary(Word),
@@ -273,8 +272,7 @@ prep_doc(Word, Vals, Db) ->
         not_found -> 
             {[{<<"_id">>, list_to_binary(Word)},
                        {<<"indices">>,Vals}]}
-    end.
-    
+    end.    
 
 delete_indices(Word, Vals, Db) ->
     case lookup_doc_bitcask(list_to_binary(Word), Db) of
@@ -293,12 +291,7 @@ delete_indices(Word, Vals, Db) ->
     end.
     
     
-%% functions from Hovercraft    
-              
-
-
-
-
+%% functions from Hovercraft  
 
 open_db(DbName) ->
     couch_db:open(DbName, [?ADMIN_USER_CTX]).

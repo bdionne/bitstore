@@ -36,15 +36,11 @@ makeAset(Type, FileName) ->
     ets:delete(Tab),
     Size.
 
-
-
 make_dict() ->
     D = dict:new(),
     F = fun(Str, Dict) -> dict:store(list_to_binary(Str),[],Dict) end,
     D1 = for_each_trigram_in_the_english_language(F, D),
     file:write_file("trigrams.dict", [term_to_binary(D1)]).
-
-
 
 timer_tests() ->
     time_lookup_set("Ordered Set", "trigramsOS.tab"),

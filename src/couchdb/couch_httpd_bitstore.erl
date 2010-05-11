@@ -27,22 +27,27 @@ db_req(#httpd{method='GET',path_parts=[_,<<"_onty">>]}=Req, Db) ->
     DbName = list_to_atom(?b2l(Db#db.name)),
 
     
-    Docs = case Roots of
-               undefined ->
-                   case Subj of
-                       undefined ->
-                           case Pred of
-                               undefined -> bitstore:get_sources(?l2b(Obj),DbName);
-                               _ -> bitstore:get_labeled_sources(?l2b(Obj),?l2b(Pred),DbName)
-                           end;
-                       _ ->
-                           case Pred of
-                               undefined -> bitstore:get_targets(?l2b(Subj),DbName);
-                               _ -> bitstore:get_labeled_targets(?l2b(Subj),?l2b(Pred),DbName)
-                           end               
-                   end;
-               _ -> bitstore:get_roots(?l2b(Pred), DbName)
-           end,
+    Docs =
+        case Roots of
+            undefined ->
+                case Subj of
+                    undefined ->
+                        case Pred of
+                            undefined -> 
+                                bitstore:get_sources(?l2b(Obj),DbName);
+                            _ -> 
+                                bitstore:get_labeled_sources(?l2b(Obj),?l2b(Pred),DbName)
+                        end;
+                    _ ->
+                        case Pred of
+                            undefined ->
+                                bitstore:get_targets(?l2b(Subj),DbName);
+                            _ -> 
+                                bitstore:get_labeled_targets(?l2b(Subj),?l2b(Pred),DbName)
+                        end               
+                end;
+            _ -> bitstore:get_roots(?l2b(Pred), DbName)
+        end,
     
     send_json(Req, 200, {[
             {total_rows, length(Docs)},
