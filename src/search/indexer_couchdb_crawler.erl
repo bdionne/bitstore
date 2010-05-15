@@ -66,6 +66,7 @@ open_index(DbIndexName) ->
     bitcask:open(DbIndexName, [read_write, {max_file_size, 100000000}]).
 
 close_index(Db) ->
+    ?LOG(?DEBUG, "closing db: ~w~n",[Db]),
     bitcask:close(Db).    
 
 next({DbName, StartId}) ->
@@ -264,9 +265,7 @@ prep_doc(Word, Vals, Db) ->
         {ok, Doc} -> 
             Props = element(1, Doc),
             Indices = proplists:get_value(<<"indices">>, Props),
-            %%?LOG(?DEBUG,"the current indices ~p ~n",[Indices]),
             NewProps = proplists:delete(<<"indices">>, Props),
-            %%?LOG(?DEBUG,"props after deleting ~p ~n",[NewProps]),
             {lists:append(NewProps, 
                               [{<<"indices">>,lists:append(Indices, Vals)}] )};
         not_found -> 
