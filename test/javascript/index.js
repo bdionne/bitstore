@@ -15,9 +15,7 @@ couchTests.index = function(debug) {
   var result = JSON.parse(CouchDB.request("GET", "/").responseText);
   T(result.couchdb == "Welcome");
 
-  var db = new CouchDB("test_search-idx", {"X-Couch-Full-Commit":"true"});
-  db.deleteDb();
-  db = new CouchDB("test_search", {"X-Couch-Full-Commit":"true"});
+  var db = new CouchDB("test_search", {"X-Couch-Full-Commit":"true"});
   db.deleteDb();
   db.createDb();
   var doc = {foo : "foo"};

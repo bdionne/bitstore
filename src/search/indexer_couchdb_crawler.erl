@@ -41,6 +41,7 @@
          lookup_indices/2, 
          write_indices/3,
          write_bulk/2,
+         delete_db_index/1,
          delete_indices/3
         ]).
 
@@ -61,6 +62,14 @@ start(DbName, [{reset, DbIndexName}]) ->
 
 index_exists(DbName) ->
     filelib:is_dir(DbName).
+
+delete_db_index(DbName) ->
+    DbIndexName = list_to_binary(DbName ++ "-idx"),
+    case filelib:is_dir(DbIndexName) of
+        true ->
+            os:cmd("rm -rf " ++ DbIndexName);
+        _ -> ok
+    end.
 
 open_index(DbIndexName) ->
     bitcask:open(DbIndexName, [read_write, {max_file_size, 100000000}]).

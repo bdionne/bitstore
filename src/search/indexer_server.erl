@@ -28,7 +28,9 @@
          write_index/3,
          write_bulk_indices/2,
          delete_index/3,
-	 should_i_stop/1,
+         delete_db_index/1,
+         is_running/1,
+         start/1,
 	 stop/1]).
 
 -export([init/1, handle_call/3, handle_cast/2, terminate/2]).
@@ -36,15 +38,24 @@
 -include("indexer.hrl").
 
 schedule_stop(Pid) ->
-    gen_server:call(Pid, schedule_stop, infinity).
+    RealStop = gen_server:call(Pid, schedule_stop, infinity),
+    case RealStop of
+        norun ->
+            stop(Pid);
+        _ -> ok
+    end.
 
-should_i_stop(Pid) ->
-    gen_server:call(Pid, should_i_stop).
+is_running(Pid) ->
+    gen_server:call(Pid, is_running).
+
+start(Pid) ->
+    gen_server:call(Pid, start, infinity).
 
 stop(Pid) ->
      gen_server:cast(Pid, stop).
 
-next_docs(Pid)   -> gen_server:call(Pid, next_docs, infinity).
+next_docs(Pid) -> 
+    gen_server:call(Pid, next_docs, infinity).
 
 total_docs(Pid) ->
     gen_server:call(Pid, total_docs).
@@ -71,6 +82,9 @@ write_bulk_indices(Pid, MrListS) ->
 
 delete_index(Pid, Key, Vals) ->
     gen_server:call(Pid, {delete, Key, Vals}).
+
+delete_db_index(DbName) ->
+    indexer_couchdb_crawler:delete_db_index(DbName).
 
 -record(env,
         {ets, 
@@ -105,7 +119,8 @@ init(DbName) ->
                       idx=Db,
                       cont=Cont1,
                       nextCP=Next,
-                      chkp=Cont1}}.
+                      chkp=Cont1,
+                      stop=true}}.
 
 handle_call(ets_table, _From, S) ->
     {reply, S#env.ets, S};
@@ -128,7 +143,6 @@ handle_call(db_name, _From, S) ->
     {reply, S#env.dbnam, S};
 handle_call(checkpoint, _From, S) ->
     Next = S#env.nextCP,
-    %%Db = S#env.idx,
     Next1 = indexer_checkpoint:checkpoint(Next, S#env.chkp),
     S1 = S#env{nextCP = Next1, cont=S#env.chkp},
     {reply, ok, S1};
@@ -141,6 +155,12 @@ handle_call(schedule_stop, _From, S) ->
        {_, done} -> {reply, norun, S#env{stop=true}};
         _ -> {reply, ack, S#env{stop=true}}
     end;
+
+handle_call(start, _From, S) ->
+    {reply, norun, S#env{stop=false}};
+
+handle_call(is_running, _From, S) ->
+    {reply, not S#env.stop, S};
 handle_call({search, Str}, _From,S) ->
     Result = indexer_misc:search(Str, S#env.ets, S#env.dbnam, S#env.idx),
     {reply, Result, S};
@@ -153,11 +173,7 @@ handle_call({write_bulk, MrListS}, _From,S) ->
     {reply, Result, S};
 handle_call({delete, Key, Vals}, _From,S) ->
     Result = indexer_couchdb_crawler:delete_indices(Key, Vals, S#env.idx),
-    {reply, Result, S};
-
-
-handle_call(should_i_stop, _From, S) ->
-    {reply, S#env.stop, S}.
+    {reply, Result, S}.
 
 handle_cast(stop, S) ->
     {stop, normal, S}.

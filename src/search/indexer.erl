@@ -20,7 +20,8 @@
 %%% Copyright (C) 2009   Dionne Associates, LLC.
 -author('Bob Dionne').
 
--export([start_link/0, stop/1, start/1, search/2]).
+-export([start_link/0, stop/1, start/1, search/2, db_deleted/1, db_updated/1]).
+
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
@@ -35,8 +36,22 @@
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
-init([]) ->    
+init([]) -> 
+    couch_db_update_notifier:start_link(
+      fun({deleted, DbName}) ->
+              ?MODULE:db_deleted(binary_to_list(DbName));              
+         ({updated, DbName}) ->
+              ?MODULE:db_updated(binary_to_list(DbName));              
+         (_Else) ->
+              ok
+      end),
     {ok, #state{dbs=ets:new(names_pids,[set])}}.
+
+db_deleted(DbName) ->
+    gen_server:call(?MODULE,{db_deleted, DbName}, infinity).
+
+db_updated(DbName) ->
+    gen_server:call(?MODULE,{db_updated, DbName}, infinity).     
 
 start(DbName) ->
     gen_server:call(?MODULE,{start, DbName}, infinity).    
@@ -55,24 +70,86 @@ stop(DbName) ->
     gen_server:call(?MODULE, {stop, DbName}).
 
 handle_call({start, DbName}, _From, State) ->
-    {ok, Pid} = gen_server:start_link(indexer_server, [DbName], []),
+
     #state{dbs=Tab} = State,
-    ets:insert(Tab,{DbName,Pid}),
-    spawn_link(
-      fun() -> 
-              couch_task_status:add_task(<<"Indexing Database">>, DbName, <<"Starting">>),
-              worker(Pid, 0),
-              couch_task_status:update("Complete")
-      end),
-    {reply, ok, State};
+    Pid = case ets:lookup(Tab,DbName) of
+              [{DbName, Pid1}] ->
+                  ?LOG(?DEBUG,"An indexer for ~p already exists.~n",[DbName]),
+                  Pid1;
+              _Wtf ->
+                  {ok, Pid2} = gen_server:start_link(indexer_server, [DbName], []),
+                  ets:insert(Tab,{DbName,Pid2}),
+                  Pid2
+          end,
+
+    AlreadyRunning = indexer_server:is_running(Pid),
+
+    case AlreadyRunning of
+        true ->
+            {reply, ok, State};
+        _ ->
+            indexer_server:start(Pid),
+            spawn_link(
+              fun() -> 
+                      couch_task_status:add_task(<<"Indexing Database">>, 
+                                                 DbName, <<"Starting">>),
+                      worker(Pid, 0),
+                      couch_task_status:update("Complete")
+              end),
+            {reply, ok, State}
+    end;
+
 handle_call({search, DbName, Str}, _From, State) ->
     #state{dbs=Tab} = State,
-    [{DbName,Pid}] = ets:lookup(Tab,DbName),
+    Pid = case ets:lookup(Tab,DbName) of
+              [] ->
+                  ?LOG(?DEBUG, "Indexer doesn't exist need to create new ~p ~n",[DbName]),
+                  {ok, NewPid} = gen_server:start_link(indexer_server, [DbName], []),
+                  ets:insert(Tab,{DbName,NewPid}),
+                  indexer_server:start(NewPid),
+                  NewPid;
+              [{DbName,Pid2}] -> Pid2
+          end,
     {reply, indexer_server:search(Pid, Str), State};
+
 handle_call({stop, DbName}, _From, State) ->
     #state{dbs=Tab} = State,
     [{DbName,Pid}] = ets:lookup(Tab,DbName),
-    {reply, indexer_server:schedule_stop(Pid), State}.
+    ets:delete(Tab,DbName),
+    {reply, indexer_server:schedule_stop(Pid), State};
+
+handle_call({db_updated, DbName}, _From, State) ->
+    ?LOG(?DEBUG,"Database: ~p ~n with state: ~p ~n , updated~n",[DbName, State]),
+    #state{dbs=Tab} = State,
+    ?LOG(?DEBUG,"The table is here ~p ~n",[Tab]),
+    case ets:lookup(Tab,DbName) of
+        [{DbName, Pid}] ->
+            spawn_link(
+              fun() -> 
+                      couch_task_status:add_task(
+                        <<"Indexing Database">>, DbName, <<"Starting">>),
+                      poll_for_changes(Pid),
+                      couch_task_status:update("Complete")
+              end);
+        Wtf ->
+            ?LOG(?DEBUG,"Where is the Pid for this guy? ~p ~n",[Wtf])
+    end,
+    {reply, ok, State};
+
+handle_call({db_deleted, DbName}, _From, State) ->
+    ?LOG(?DEBUG,"Database: ~p , deleted ~n",[DbName]),
+    #state{dbs=Tab} = State,
+    case ets:lookup(Tab,DbName) of
+        [{DbName, Pid}] ->
+            ?LOG(?DEBUG,"The Db Pid is here: ~p ~n",[Pid]),
+            indexer_server:stop(Pid),
+            ets:delete(Tab,DbName);
+        Wtf ->
+            ?LOG(?DEBUG, "There is nothing to delete for ~p ? ~n",[Wtf])
+    end,
+    indexer_server:delete_db_index(DbName),
+    {reply, ok, State}.
+    
 
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -123,6 +200,7 @@ worker(Pid, WorkSoFar) ->
     end.
 
 poll_for_changes(Pid) ->
+    io:format("calling poll_for_changes ~n",[]),
     case possibly_stop(Pid) of
         done ->
              ok;
@@ -145,19 +223,17 @@ poll_for_changes(Pid) ->
                           "Indexed another ~p documents",
                           [length(Deletes) + length(Inserts)]);
                 false -> ok
-            end,
-            sleep(60000),
-            poll_for_changes(Pid)
+            end
     end.
             
                 
 possibly_stop(Pid) ->
-    case indexer_server:should_i_stop(Pid) of 
-	true ->
+    case indexer_server:is_running(Pid) of 
+	false ->
 	    ?LOG(?INFO, "Stopping~n", []),
             indexer_server:stop(Pid),
 	    done;
-    	false ->
+    	true ->
 	    void
     end.
 
@@ -179,7 +255,6 @@ index_these_docs(Pid, Docs) ->
                          MrList),
     Tbeg = now(),
     indexer_server:write_bulk_indices(Pid, MrListS),
-    %%sleep(5000),
     
     Tdiff = timer:now_diff(now(),Tbeg),
     ?LOG(?DEBUG, "time spent in writing was ~p ~n",[Tdiff]).
@@ -193,10 +268,5 @@ handle_result(Pid, Key, Vals, Acc, InsertOrDelete) ->
             indexer_server:delete_index(Pid, Key, Vals)
     end,    
     Acc + 1.
-
-sleep(T) ->
-    receive
-    after T -> true
-    end.
 
 

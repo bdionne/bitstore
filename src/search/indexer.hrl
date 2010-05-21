@@ -1,4 +1,4 @@
--define(DEBUG, false).
+-define(DEBUG, true).
 -define(INFO, true).
 -define(ERROR,true).
 
