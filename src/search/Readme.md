@@ -38,7 +38,9 @@ I think Lucene is pretty much state of the art these days for Java-based text in
 
 Currently we index all the slot values, skipping the reserved _xxx slots and the slot names. CouchDB is schema-less but presumably in most dbs docs would be fairly homogenous in having the same slot names across multiple docs. We also don't require the user to declare views that are used to construct what gets indexed. This is the normal approach with Lucene style indexing. We just index everything and think it might be useful to allow filters to be defined that run over the search results.
 
-We now track which fields in the docs contain the search strings as well so that clients can support text highligting. This also allows the results to be filtered. This will likely be best supported via integration with the query_server engine similar to the shows and lists capabilities.
+We now track which fields in the docs contain the search strings as well so that clients can support text highligting. This also allows the results to be filtered. This could be best supported via integration with the query_server engine similar to the shows and lists capabilities. We now support filtering of field names, which can be passed in along with the search query
+
+
 
 This is still largely a prototype, to explore the issues with FTI in erlang running in the couchdb VM.
 With the new bitcask back end we now indeinx the 65K concepts of biomedgt in under a minute. This is roughly 300M of text. What's even more impressive is the search speed. Incrmental type ahead search is good. 
@@ -47,9 +49,12 @@ Queries can also be run with the REST API:
 
     curl 'http://127.0.0.1:5984/biomedgt/_index_query?word=neoplasm heart benign'
 
+Or to filter:
+
+    curl 'http://127.0.0.1:5984/biomedgtnew/_index_query?word=malignant&field=Preferred_Name'
+
 ## Next TODOs
 
-* filter query results using user-defined JS functions
 
 
 
