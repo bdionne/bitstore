@@ -17,7 +17,7 @@
 
 
 -export([foreach_word_in_string/3, 
-	 mapreduce/4, search/4]).
+	 mapreduce/4, search/5]).
 -import(lists, [filter/2, foreach/2, map/2, reverse/1, foldl/3]).
 
 -include("indexer.hrl").
@@ -125,7 +125,7 @@ do_job(ReducePid, F, X) ->
     F(ReducePid, X).
 
 
-search(Str, Ets, DbName, Idx) ->
+search(Str, Field, Ets, DbName, Idx) ->
     %% find the keywords using the same algorithm as in the indexing phase
     F1 = fun(Word, Acc) -> [Word|Acc] end,
     Words = indexer_misc:foreach_word_in_string(Str, F1, []),
@@ -135,6 +135,8 @@ search(Str, Ets, DbName, Idx) ->
         map(fun(I) -> 
                     {I, indexer_couchdb_crawler:lookup_indices(I, Idx)} end, Words1),
 
+   
+    
     DocIds = map(fun(Pair) ->
                          map(fun(Tuple) ->
                                      element(1, Tuple)
@@ -156,7 +158,12 @@ search(Str, Ets, DbName, Idx) ->
             end,
             map(fun(I) ->
                         {ok, Doc} = indexer_couchdb_crawler:open_doc(DbName, I),
-                        append_slots(Doc, I, Indices)
+                        case Field of
+                            all ->
+                                append_slots(Doc, I, Indices);
+                            _ ->
+                                filter_and_append_slots(Doc, Field, I, Indices)
+                        end
                 end, IndicesToReturn)
 	    
     end.
@@ -167,6 +174,24 @@ append_slots(Doc, Id, Indices) ->
                   Slots = proplists:get_value(Id,element(2,Pair)),
                   lists:append(Acc,[{list_to_binary(Word),Slots}])
           end,element(1,Doc),Indices)}.
+
+filter_and_append_slots(Doc, Field, Id, Indices) ->
+    FieldBin = list_to_binary(Field),
+    Filter = lists:all(fun(Pair) ->
+                               Slots = proplists:get_value(Id,element(2,Pair)),
+                               DocSlots = element(1,Doc),
+                               lists:any(fun(Slot) ->
+                                                 case element(1,lists:nth(Slot,DocSlots)) of
+                                                     FieldBin -> true;
+                                                     _ -> false
+                                                 end
+                                         end, Slots)
+                       end,Indices),
+    case Filter of
+        true ->
+            append_slots(Doc,Id,Indices);
+        _ -> []
+    end.
 
         
             

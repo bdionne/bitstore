@@ -22,7 +22,13 @@
 
 db_req(#httpd{method='GET',path_parts=[_,<<"_index_query">>]}=Req, Db) ->
     Word = couch_httpd:qs_value(Req, "word","foo"),
-    Docs = indexer:search(?b2l(Db#db.name), Word),    
+    SlotName = couch_httpd:qs_value(Req, "field"),
+    Docs = case SlotName of
+               undefined ->
+                   indexer:search(?b2l(Db#db.name), Word);
+               _ -> 
+                   indexer:search(?b2l(Db#db.name), Word, SlotName)
+           end,
     send_json(Req, 200, {[
             {total_rows, length(Docs)},
             {offset, 0},

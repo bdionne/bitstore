@@ -20,7 +20,7 @@
 %%% Copyright (C) 2009   Dionne Associates, LLC.
 -author('Bob Dionne').
 
--export([start_link/0, stop_indexing/1, start_indexing/1, search/2, db_deleted/1, db_updated/1]).
+-export([start_link/0, stop_indexing/1, start_indexing/1, search/2, search/3, db_deleted/1, db_updated/1]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
@@ -58,6 +58,15 @@ start_indexing(DbName) ->
 
 search(DbName, Str) ->
     Docs = gen_server:call(?MODULE, {search, DbName, Str}, infinity),
+    case Docs of
+        none ->
+             [];
+        tooMany -> [];
+        _ -> Docs
+    end.
+
+search(DbName, Str, Field) ->
+    Docs = gen_server:call(?MODULE, {search, DbName, Str, Field}, infinity),
     case Docs of
         none ->
              [];
@@ -110,6 +119,18 @@ handle_call({search, DbName, Str}, _From, State) ->
               [{DbName,Pid2}] -> Pid2
           end,
     {reply, indexer_server:search(Pid, Str), State};
+
+handle_call({search, DbName, Str, Field}, _From, State) ->
+    #state{dbs=Tab} = State,
+    Pid = case ets:lookup(Tab,DbName) of
+              [] ->
+                  ?LOG(?DEBUG, "Indexer doesn't exist need to create new ~p ~n",[DbName]),
+                  {ok, NewPid} = gen_server:start_link(indexer_server, [DbName], []),
+                  ets:insert(Tab,{DbName,NewPid}),
+                  NewPid;
+              [{DbName,Pid2}] -> Pid2
+          end,
+    {reply, indexer_server:search(Pid, Str, Field), State};
 
 handle_call({stop, DbName}, _From, State) ->
     #state{dbs=Tab} = State,

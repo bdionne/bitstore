@@ -25,6 +25,7 @@
          checkpoint/3,
 	 schedule_stop/1,
 	 search/2,
+         search/3,
          write_index/3,
          write_bulk_indices/2,
          delete_index/3,
@@ -77,6 +78,8 @@ checkpoint(Pid, changes, LastSeq) ->
 ets_table(Pid)  -> gen_server:call(Pid, ets_table).
     
 search(Pid, Str)  -> gen_server:call(Pid, {search, Str}, infinity).
+
+search(Pid, Str, Field)  -> gen_server:call(Pid, {search, Str, Field}, infinity).
 
 write_index(Pid, Key, Vals) ->
     gen_server:call(Pid, {write, Key, Vals}).
@@ -168,7 +171,10 @@ handle_call(is_running, _From, S) ->
 handle_call(scheduled_stop, _From, S) ->
     {reply, S#env.sched_stop, S};
 handle_call({search, Str}, _From,S) ->
-    Result = indexer_misc:search(Str, S#env.ets, S#env.dbnam, S#env.idx),
+    Result = indexer_misc:search(Str, all, S#env.ets, S#env.dbnam, S#env.idx),
+    {reply, Result, S};
+handle_call({search, Str, Field}, _From,S) ->
+    Result = indexer_misc:search(Str, Field, S#env.ets, S#env.dbnam, S#env.idx),
     {reply, Result, S};
 
 handle_call({write, Key, Vals}, _From,S) ->
