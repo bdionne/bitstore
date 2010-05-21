@@ -156,7 +156,7 @@ search(Str, Field, Ets, DbName, Idx) ->
                     lists:sublist(Indices1,100);
 		_ -> Indices1
             end,
-            map(fun(I) ->
+            [X || X <- map(fun(I) ->
                         {ok, Doc} = indexer_couchdb_crawler:open_doc(DbName, I),
                         case Field of
                             all ->
@@ -164,7 +164,8 @@ search(Str, Field, Ets, DbName, Idx) ->
                             _ ->
                                 filter_and_append_slots(Doc, Field, I, Indices)
                         end
-                end, IndicesToReturn)
+                end, IndicesToReturn),
+                  X /= []]
 	    
     end.
 
