@@ -10,6 +10,16 @@
     start_chunked_response/3, absolute_uri/2, send/2,
     start_response_length/4]).
 
+%% -record(doc_query_args, {
+%%     options = [],
+%%     rev = nil,
+%%     open_revs = [],
+%%     update_type = interactive_edit,
+%%     atts_since = nil
+%% }).
+
+
+
 db_req(#httpd{method='GET',path_parts=[_,<<"_index_query">>]}=Req, Db) ->
     Word = couch_httpd:qs_value(Req, "word","foo"),
     Docs = indexer:search(?b2l(Db#db.name), Word),    
@@ -27,27 +37,22 @@ db_req(#httpd{method='GET',path_parts=[_,<<"_onty">>]}=Req, Db) ->
     DbName = list_to_atom(?b2l(Db#db.name)),
 
     
-    Docs =
-        case Roots of
-            undefined ->
-                case Subj of
-                    undefined ->
-                        case Pred of
-                            undefined -> 
-                                bitstore:get_sources(?l2b(Obj),DbName);
-                            _ -> 
-                                bitstore:get_labeled_sources(?l2b(Obj),?l2b(Pred),DbName)
-                        end;
-                    _ ->
-                        case Pred of
-                            undefined ->
-                                bitstore:get_targets(?l2b(Subj),DbName);
-                            _ -> 
-                                bitstore:get_labeled_targets(?l2b(Subj),?l2b(Pred),DbName)
-                        end               
-                end;
-            _ -> bitstore:get_roots(?l2b(Pred), DbName)
-        end,
+    Docs = case Roots of
+               undefined ->
+                   case Subj of
+                       undefined ->
+                           case Pred of
+                               undefined -> bitstore:get_sources(?l2b(Obj),DbName);
+                               _ -> bitstore:get_labeled_sources(?l2b(Obj),?l2b(Pred),DbName)
+                           end;
+                       _ ->
+                           case Pred of
+                               undefined -> bitstore:get_targets(?l2b(Subj),DbName);
+                               _ -> bitstore:get_labeled_targets(?l2b(Subj),?l2b(Pred),DbName)
+                           end               
+                   end;
+               _ -> bitstore:get_roots(?l2b(Pred), DbName)
+           end,
     
     send_json(Req, 200, {[
             {total_rows, length(Docs)},
@@ -74,12 +79,16 @@ db_req(#httpd{method=Method,path_parts=[_,<<"_onty">>]}=Req, Db) ->
     end,
     send_json(Req, 202, {[{ok, true}]}).
 
+
+
+
+
 %% bitstore hacks
 handle_index_req(#httpd{method='POST'}=Req, Db) ->
     Stop = couch_httpd:qs_value(Req, "stop","false"),
     case Stop of
 	"true" -> 
-	    indexer:stop(?b2l(Db#db.name));
-	_ -> indexer:start(?b2l(Db#db.name))
+	    indexer:stop_indexing(?b2l(Db#db.name));
+	_ -> indexer:start_indexing(?b2l(Db#db.name))
     end,
     send_json(Req, 202, {[{ok, true}]}).

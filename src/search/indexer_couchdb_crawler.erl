@@ -64,11 +64,14 @@ index_exists(DbName) ->
     filelib:is_dir(DbName).
 
 delete_db_index(DbName) ->
-    DbIndexName = list_to_binary(DbName ++ "-idx"),
+    DbIndexName = (DbName ++ "-idx"),
     case filelib:is_dir(DbIndexName) of
         true ->
+            ?LOG(?DEBUG, "removing index for ~p ~n",[DbIndexName]),
             os:cmd("rm -rf " ++ DbIndexName);
-        _ -> ok
+        _ -> 
+            ?LOG(?DEBUG, "index to remove does not exist ~p ~n",[DbIndexName]),
+            ok
     end.
 
 open_index(DbIndexName) ->
@@ -99,16 +102,19 @@ open_by_id_btree(DbName) ->
 
 get_changes_since(DbName, SeqNum) ->   
     {ok, #db{update_seq=LastSeq}=Db} = open_db(DbName),
+    ?LOG(?DEBUG,"In the db the lat seq is ~p ~n",[LastSeq]),
     {ok, DocInfos} = 
         couch_db:changes_since(Db, all_docs, SeqNum,
                                fun(DocInfos, Acc) ->
-                                       {ok, lists:append(Acc, DocInfos)} end,
+                                       {ok, lists:append(Acc, [DocInfos])} end,
                                [],[]),
+    
     {InsIds, UpdIds, DelIds} = 
         lists:foldl(fun(DocInfo, 
                         {Inserts,
                          Updates,
                          Deletes}) ->
+                            ?LOG(?DEBUG, "A new Doc looks like ~p ~n",[DocInfo]),
                             {doc_info, Id, _, [{rev_info,{Rev,_},_,Deleted,_}]}=DocInfo,
                             case Rev of
                                 1 -> {[Id | Inserts],Updates, Deletes};

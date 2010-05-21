@@ -20,7 +20,7 @@
 %%% Copyright (C) 2009   Dionne Associates, LLC.
 -author('Bob Dionne').
 
--export([start_link/0, stop/1, start/1, search/2, db_deleted/1, db_updated/1]).
+-export([start_link/0, stop_indexing/1, start_indexing/1, search/2, db_deleted/1, db_updated/1]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
@@ -53,7 +53,7 @@ db_deleted(DbName) ->
 db_updated(DbName) ->
     gen_server:call(?MODULE,{db_updated, DbName}, infinity).     
 
-start(DbName) ->
+start_indexing(DbName) ->
     gen_server:call(?MODULE,{start, DbName}, infinity).    
 
 search(DbName, Str) ->
@@ -65,7 +65,7 @@ search(DbName, Str) ->
         _ -> Docs
     end.
 
-stop(DbName) ->
+stop_indexing(DbName) ->
     ?LOG(?INFO, "Scheduling a stop~n", []),
     gen_server:call(?MODULE, {stop, DbName}).
 
@@ -106,7 +106,6 @@ handle_call({search, DbName, Str}, _From, State) ->
                   ?LOG(?DEBUG, "Indexer doesn't exist need to create new ~p ~n",[DbName]),
                   {ok, NewPid} = gen_server:start_link(indexer_server, [DbName], []),
                   ets:insert(Tab,{DbName,NewPid}),
-                  indexer_server:start(NewPid),
                   NewPid;
               [{DbName,Pid2}] -> Pid2
           end,
@@ -124,13 +123,17 @@ handle_call({db_updated, DbName}, _From, State) ->
     ?LOG(?DEBUG,"The table is here ~p ~n",[Tab]),
     case ets:lookup(Tab,DbName) of
         [{DbName, Pid}] ->
-            spawn_link(
+            case indexer_server:is_running(Pid) of
+                false -> 
+                    spawn_link(
               fun() -> 
                       couch_task_status:add_task(
                         <<"Indexing Database">>, DbName, <<"Starting">>),
                       poll_for_changes(Pid),
                       couch_task_status:update("Complete")
               end);
+                _ -> ok
+            end;
         Wtf ->
             ?LOG(?DEBUG,"Where is the Pid for this guy? ~p ~n",[Wtf])
     end,
@@ -228,12 +231,12 @@ poll_for_changes(Pid) ->
             
                 
 possibly_stop(Pid) ->
-    case indexer_server:is_running(Pid) of 
-	false ->
+    case indexer_server:stop_scheduled(Pid) of 
+	true ->
 	    ?LOG(?INFO, "Stopping~n", []),
             indexer_server:stop(Pid),
 	    done;
-    	true ->
+    	_ ->
 	    void
     end.
 

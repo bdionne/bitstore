@@ -31,7 +31,8 @@
          delete_db_index/1,
          is_running/1,
          start/1,
-	 stop/1]).
+	 stop/1,
+         stop_scheduled/1]).
 
 -export([init/1, handle_call/3, handle_cast/2, terminate/2]).
 -import(filename, [join/2]).
@@ -44,6 +45,9 @@ schedule_stop(Pid) ->
             stop(Pid);
         _ -> ok
     end.
+
+stop_scheduled(Pid) ->
+    gen_server:call(Pid, scheduled_stop, infinity).
 
 is_running(Pid) ->
     gen_server:call(Pid, is_running).
@@ -92,8 +96,9 @@ delete_db_index(DbName) ->
          dbnam, 
          idx, 
          nextCP,
-         chkp, 
-         stop=false}).
+         chkp,
+         running=false,
+         sched_stop=false}).
 
 init(DbName) ->
     Tab = indexer_trigrams:open(),
@@ -119,8 +124,7 @@ init(DbName) ->
                       idx=Db,
                       cont=Cont1,
                       nextCP=Next,
-                      chkp=Cont1,
-                      stop=true}}.
+                      chkp=Cont1}}.
 
 handle_call(ets_table, _From, S) ->
     {reply, S#env.ets, S};
@@ -132,10 +136,11 @@ handle_call(next_docs, _From, S) ->
 	done ->
             %% bitcask presumably doesn't need compaction??
             %%indexer_couchdb_crawler:compact_index(S#env.idx),
-	    {reply, done, S}
+	    {reply, done, S#env{running=false}}
     end;
 handle_call(changes, _From, S) ->
     LastSeq = indexer_couchdb_crawler:read_last_seq(S#env.idx),
+    ?LOG(?DEBUG,"The last seqeuence was ~p ~n",[LastSeq]),
     {reply, indexer_couchdb_crawler:get_changes_since(S#env.dbnam, LastSeq), S};
 handle_call(total_docs, _From, S) ->
     {reply, indexer_couchdb_crawler:read_doc_count(S#env.idx), S};
@@ -152,15 +157,16 @@ handle_call({checkpoint, changes, LastSeq}, _From, S) ->
 handle_call(schedule_stop, _From, S) ->
     ?LOG(?DEBUG, "value of checkpoint is ~p ~n",[S#env.chkp]),
     case S#env.chkp of
-       {_, done} -> {reply, norun, S#env{stop=true}};
-        _ -> {reply, ack, S#env{stop=true}}
+       {_, done} -> {reply, norun, S#env{running=false, sched_stop=true}};
+        _ -> {reply, ack, S#env{sched_stop=true}}
     end;
 
 handle_call(start, _From, S) ->
-    {reply, norun, S#env{stop=false}};
-
+    {reply, ok, S#env{running=true}};
 handle_call(is_running, _From, S) ->
-    {reply, not S#env.stop, S};
+    {reply, S#env.running, S};
+handle_call(scheduled_stop, _From, S) ->
+    {reply, S#env.sched_stop, S};
 handle_call({search, Str}, _From,S) ->
     Result = indexer_misc:search(Str, S#env.ets, S#env.dbnam, S#env.idx),
     {reply, Result, S};
