@@ -1,5 +1,5 @@
--define(DEBUG, true).
--define(INFO, true).
+-define(DEBUG, false).
+-define(INFO, false).
 -define(ERROR,true).
 
 -define(LOG(Type, Format, Args),

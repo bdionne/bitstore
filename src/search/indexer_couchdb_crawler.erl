@@ -316,7 +316,9 @@ open_db(DbName) ->
 %%--------------------------------------------------------------------
 db_info(DbName) ->
     {ok, Db} = open_db(DbName),
-    couch_db:get_db_info(Db).
+    couch_db:get_db_info(Db),
+    couch_db:close(Db).
+
 
 %%--------------------------------------------------------------------
 %% Function: open_doc(DbName, DocId) -> {ok,Doc} | {error,Error}
