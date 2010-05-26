@@ -133,20 +133,30 @@ get_changes_since(DbName, SeqNum) ->
 get_previous_version(Ids, DbName) ->
     lists:map(
       fun(Id) ->
+              ?LOG(?DEBUG,"trying to get doc: ~p ~n",[Id]),
               {ok, Db} = open_db(DbName),
               try
               DocWithRevs =
                   couch_doc:to_json_obj(couch_httpd_db:couch_doc_open(
                                           Db, Id, nil, [revs]),[revs]),
               Revs = proplists:get_value(<<"_revisions">>,element(1,DocWithRevs)),
+              ?LOG(?DEBUG,"Here are the Revs: ~p ~n",[Revs]),
+              LastRev = proplists:get_value(<<"start">>,element(1,Revs)),
+              
+                  
               PrevRevId = 
-                  "1-" ++ 
+                  integer_to_list(LastRev - 1) ++ "-" ++ 
                   binary_to_list(lists:nth(2,
                                            proplists:get_value(<<"ids">>,
                                                                element(1,Revs)))),
+              ?LOG(?DEBUG,"trying to get previous doc: ~p ~n",[PrevRevId]),
               couch_doc:to_json_obj(
                 couch_httpd_db:couch_doc_open(Db,Id,couch_doc:parse_rev(PrevRevId),
                                               []),[])
+              catch
+                  _:_Error -> 
+                      ?LOG(?DEBUG,"someone failed with ~p ~n",[_Error]),
+                      not_found
               after
                   catch couch_db:close(Db)
               end
