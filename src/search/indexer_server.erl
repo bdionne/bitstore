@@ -110,9 +110,8 @@ init(DbName) ->
     Db = case indexer_couchdb_crawler:index_exists(binary_to_list(DbIndexName)) of
              true -> indexer_couchdb_crawler:open_index(binary_to_list(DbIndexName));
              false ->
-                 [Db1, Cont] = 
-                     indexer_couchdb_crawler:start(
-                       list_to_binary(DbName),[{reset, binary_to_list(DbIndexName)}]),
+                 ?LOG(?DEBUG,"Starting new crawler with ~p ~p ~n",[list_to_binary(DbName), binary_to_list(DbIndexName)]),
+                 [Db1, Cont] = indexer_couchdb_crawler:start(list_to_binary(DbName),[{reset, binary_to_list(DbIndexName)}]),
                  %%Check = {DbIndexName, Cont},
                  ?LOG(?INFO, "creating checkpoint:~p~n", [Cont]),
                  indexer_checkpoint:init(Db1, Cont),

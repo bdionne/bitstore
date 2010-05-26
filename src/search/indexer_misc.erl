@@ -133,16 +133,12 @@ search(Str, Field, Ets, DbName, Idx) ->
     Words1 = [W || {yes, W} <- L1],
     Indices = 
         map(fun(I) -> 
-                    {I, indexer_couchdb_crawler:lookup_indices(I, Idx)} end, Words1),
-
-   
-    
+                    {I, indexer_couchdb_crawler:lookup_indices(I, Idx)} end, Words1),    
     DocIds = map(fun(Pair) ->
                          map(fun(Tuple) ->
                                      element(1, Tuple)
                              end, element(2, Pair))
                  end, Indices),
-    %%io:format("~w ~n",[DocIds]),
     Sets = [sets:from_list(X) || X <- DocIds],
     case Sets of 
 	[] ->
@@ -165,8 +161,7 @@ search(Str, Field, Ets, DbName, Idx) ->
                                            filter_and_append_slots(Doc, Field, I, Indices)
                                    end
                            end, IndicesToReturn),
-                  X /= []]
-                
+                  X /= []]                
     end.
 
 append_slots(Doc, Id, Indices) ->

@@ -27,6 +27,7 @@
 -export([start/2, 
          next/1,
          open_doc/2,
+         open_db/1,
          index_exists/1,
          open_index/1,
          close_index/1,
@@ -107,8 +108,7 @@ get_changes_since(DbName, SeqNum) ->
         couch_db:changes_since(Db, all_docs, SeqNum,
                                fun(DocInfos, Acc) ->
                                        {ok, lists:append(Acc, [DocInfos])} end,
-                               [],[]),
-    
+                               [],[]),    
     {InsIds, UpdIds, DelIds} = 
         lists:foldl(fun(DocInfo, 
                         {Inserts,
@@ -134,6 +134,7 @@ get_previous_version(Ids, DbName) ->
     lists:map(
       fun(Id) ->
               {ok, Db} = open_db(DbName),
+              try
               DocWithRevs =
                   couch_doc:to_json_obj(couch_httpd_db:couch_doc_open(
                                           Db, Id, nil, [revs]),[revs]),
@@ -146,6 +147,9 @@ get_previous_version(Ids, DbName) ->
               couch_doc:to_json_obj(
                 couch_httpd_db:couch_doc_open(Db,Id,couch_doc:parse_rev(PrevRevId),
                                               []),[])
+              after
+                  catch couch_db:close(Db)
+              end
       end,Ids).    
 
 get_deleted_docs(_DocIds, _DbName) ->
@@ -160,7 +164,7 @@ get_docs(DocIdList, DbName) ->
       DocIdList).    
 
 get_all_docs(DbName, Options) ->
-    IdBtree = open_by_id_btree(DbName),       
+    IdBtree = open_by_id_btree(DbName),
     {ok, _, Result} = 
         couch_btree:foldl(IdBtree,
                           fun(Key, Acc) ->
@@ -187,8 +191,7 @@ get_all_docs(DbName, Options) ->
     end.
 
 lookup_doc(Id, DbName) ->
-    try
-        
+    try        
         open_doc(DbName, Id)
     catch
         _:_ -> not_found
@@ -316,8 +319,11 @@ open_db(DbName) ->
 %%--------------------------------------------------------------------
 db_info(DbName) ->
     {ok, Db} = open_db(DbName),
-    couch_db:get_db_info(Db),
-    couch_db:close(Db).
+    try         
+        couch_db:get_db_info(Db)
+    after
+        catch couch_db:close(Db)
+    end.
 
 
 %%--------------------------------------------------------------------
@@ -333,3 +339,6 @@ open_doc(DbName, DocId) ->
     after
         catch couch_db:close(Db)
     end.
+
+    
+    
