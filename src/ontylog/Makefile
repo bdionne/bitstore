@@ -1,12 +1,10 @@
 .SUFFIXES: .erl .beam
 
 .erl.beam:
-	erlc -W +debug_info $<
+	erlc -W +debug_info -DTEST $<
 
-MODS = dag load_triple_store\
-       triple_store\
-       bitstore\
-       dag_tests
+MODS = dag\
+       bitstore
 
 ERL = erl -boot start_clean 
 
