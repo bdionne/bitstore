@@ -198,7 +198,7 @@ worker(Pid, WorkSoFar) ->
                     Tind1 = now(),
                     index_these_docs(Pid, Docs),
                     Tdiff1 = timer:now_diff(now(),Tind1),
-                    ?LOG(?DEBUG, "time spent indexing was ~p ~n",[Tdiff1]),
+                    ?LOG(?INFO, "time spent indexing was ~p ~n",[Tdiff1]),
                     indexer_server:checkpoint(Pid),
                     ?LOG(?INFO, "indexed another ~w ~n", [length(Docs)]),
                     TotalDocs = indexer_server:total_docs(Pid),
@@ -224,7 +224,6 @@ worker(Pid, WorkSoFar) ->
     end.
 
 poll_for_changes(Pid) ->
-    io:format("calling poll_for_changes ~n",[]),
     case possibly_stop(Pid) of
         done ->
              ok;

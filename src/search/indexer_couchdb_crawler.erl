@@ -26,7 +26,7 @@
 %%
 -export([start/2, 
          next/1,
-         open_doc/2,
+         open_doc_db/2,
          open_db/1,
          index_exists/1,
          open_index/1,
@@ -37,7 +37,6 @@
          write_last_seq/2,
          get_changes_since/2,
          get_previous_version/2,
-         get_deleted_docs/2,
          lookup_doc_bitcask/2,
          lookup_indices/2, 
          write_indices/3,
@@ -175,12 +174,14 @@ get_docs(DocIdList, DbName) ->
 
 get_all_docs(DbName, Options) ->
     IdBtree = open_by_id_btree(DbName),
+    {ok, Db} = open_db(DbName),
+    try
     {ok, _, Result} = 
         couch_btree:foldl(IdBtree,
                           fun(Key, Acc) ->
                                  case element(1, Acc) of
                                       0 -> {stop, Acc};
-                                      _ -> TryDoc = lookup_doc(element(1,Key), DbName),
+                                      _ -> TryDoc = open_doc_db(Db, element(1,Key)),
                                            case TryDoc of
                                                {ok, Doc} ->
                                                    {ok, {element(1, Acc) - 1,
@@ -198,6 +199,9 @@ get_all_docs(DbName, Options) ->
                  _ -> {proplists:get_value(<<"_id">>,
                                            element(1,hd(Docs))), lists:reverse(tl(Docs))}
              end 
+    end
+    after
+        couch_db:close(Db)
     end.
 
 lookup_doc(Id, DbName) ->
@@ -348,6 +352,16 @@ open_doc(DbName, DocId) ->
         {ok, Doc}
     after
         catch couch_db:close(Db)
+    end.
+
+open_doc_db(Db, DocId) ->    
+    try
+        CouchDoc = couch_httpd_db:couch_doc_open(Db, DocId, nil, []),
+        Doc = couch_doc:to_json_obj(CouchDoc, []),
+        {ok, Doc}
+    catch 
+        _:_Error -> ?LOG(?DEBUG,"Blew up with ~p ~n",[_Error]),       
+                    not_found
     end.
 
     
