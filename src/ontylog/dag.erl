@@ -32,9 +32,9 @@
 %% 
 %% API
 -export([create_or_open_dag/2,
-         add_edge/2]).
-         %% remove_edge/3,
-         %% get_edge_targets/2,
+         add_edge/2,
+         remove_edge/2,
+         get_edge_targets/2]).
          %% get_edge_sources/3,
          %% get_targets/2,
          %% get_sources/3,
@@ -78,6 +78,31 @@ add_edge({Source, Arrow, Target},Dag) ->
     store_node(Target,{get_links(TargetNode),NewRefs},Dag).
 %%
 %%    
+remove_edge({Source, Arrow, Target},Dag) ->
+    SourceNode = find_or_create_node(Source,Dag), 
+    TargetNode = find_or_create_node(Target,Dag),
+    NewLinks = remove_arrow(Arrow,Target,get_links(SourceNode)),
+    NewRefs = remove_arrow(Arrow,Source,get_references(TargetNode)),
+    store_node(Source,{NewLinks,get_references(SourceNode)},Dag),
+    store_node(Target,{get_links(TargetNode),NewRefs},Dag).
+%%
+%%
+get_edge_targets({Source, Arrow},Dag) ->
+    case get_node(Source,Dag) of
+        [] -> [];
+        SourceNode ->
+            Edges = proplists:lookup(Arrow,get_links(SourceNode)),
+            case Edges of
+                none ->
+                    none;
+                {Arrow, Targets} -> Targets
+            end
+    end.
+%%
+%%
+            
+                
+
 %% internal private functions
 store_node(NodeId,Node,Dag) ->
     bitcask:put(Dag,NodeId,term_to_binary(Node)).
@@ -101,21 +126,13 @@ get_node(NodeId, Dag) ->
     end.
 %%
 %%
-%% node_exists(NodeId,Dag) ->
-%%     case bitcask:get(Dag, NodeId) of
-%%         not_found ->
-%%             false;
-%%         _ -> true
-%%     end.
-%%
-%%
 find_or_create_node(NodeId,Dag) ->
     case get_node(NodeId, Dag) of
         [] ->
             NewNode = {[],[]},
             store_node(NodeId,NewNode,Dag),
             NewNode;
-        Node -> binary_to_term(Node)
+        Node -> Node
     end.
 %%
 %%
@@ -123,9 +140,30 @@ add_arrow(ArrowId,NodeId,Edges) ->
     case proplists:lookup(ArrowId,Edges) of
         none ->
             lists:append([{ArrowId,[NodeId]}], Edges);
-        NodeList ->
+        {ArrowId, NodeList} ->
+            case lists:member(NodeId,NodeList) of
+                true ->
+                    Edges;
+                _ ->
+                    NewEdges = proplists:delete(ArrowId,Edges),
+                    lists:append(NewEdges,[{ArrowId,lists:append(NodeList,[NodeId])}])
+            end
+    end.    
+%%
+%%
+remove_arrow(ArrowId,NodeId,Edges) -> 
+    case proplists:lookup(ArrowId,Edges) of
+        none ->
+            Edges;
+        {ArrowId, NodeList} ->
             NewEdges = proplists:delete(ArrowId,Edges),
-            lists:append(NewEdges,[{ArrowId,lists:append(NodeList,[NodeId])}])
+            case length(NodeList) of
+                1 ->
+                    NewEdges;
+                _ -> 
+                    lists:append(NewEdges,
+                                 [{ArrowId,lists:delete(NodeId,NodeList)}])
+            end
     end.    
 %% 
 %% EUnit tests
@@ -137,5 +175,22 @@ add_edge_test() ->
     add_edge({<<"001">>,<<"002">>,<<"003">>},Dag),
     ?assert(length(get_links(get_node(<<"001">>,Dag))) == 1),
     close_dag(Dag).
+%%
+remove_edge_test() ->
+    %% use a different db, onty2, to workaround bug in bitcask
+    Dag = create_or_open_dag("onty2",true),
+    add_edge({<<"001">>,<<"002">>,<<"003">>},Dag),
+    ?assert(length(get_links(get_node(<<"001">>,Dag))) == 1),
+    remove_edge({<<"001">>,<<"002">>,<<"003">>},Dag),
+    ?assert(length(get_links(get_node(<<"001">>,Dag))) == 0),
+    close_dag(Dag).
+%%
+get_edge_targets_test() ->
+    Dag = create_or_open_dag("onty3",true),
+    add_edge({<<"001">>,<<"002">>,<<"003">>},Dag),
+    ?assert(length(get_links(get_node(<<"001">>,Dag))) == 1),
+    ?assert(length(get_edge_targets({<<"001">>,<<"002">>},Dag)) == 1),
+    [<<"003">>] = get_edge_targets({<<"001">>,<<"002">>},Dag).
+    
 %%
 -endif.
