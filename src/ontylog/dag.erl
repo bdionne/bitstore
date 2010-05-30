@@ -34,12 +34,12 @@
 -export([create_or_open_dag/2,
          add_edge/2,
          remove_edge/2,
-         get_edge_targets/2]).
-         %% get_edge_sources/3,
-         %% get_targets/2,
-         %% get_sources/3,
-         %% get_roots/3,
-         %% path_exists/2]).
+         get_edge_targets/2,
+         get_edge_sources/2,
+         get_targets/2,
+         get_sources/2,
+         get_roots/2,
+         path_exists/2]).
 %%
 -include("dag.hrl").
 %%
@@ -100,8 +100,56 @@ get_edge_targets({Source, Arrow},Dag) ->
     end.
 %%
 %%
-            
-                
+get_edge_sources({Target, Arrow},Dag) ->
+    case get_node(Target,Dag) of
+        [] -> [];
+        TargetNode ->
+            Edges = proplists:lookup(Arrow,get_references(TargetNode)),
+            case Edges of
+                none ->
+                    none;
+                {Arrow, Sources} -> Sources
+            end
+    end.
+%%
+%%
+get_targets(Source,Dag) ->
+    case get_node(Source,Dag) of
+        [] ->
+            [];
+        SourceNode ->
+            get_links(SourceNode)
+    end.
+%%
+%%
+get_sources(Target,Dag) ->
+    case get_node(Target,Dag) of
+        [] ->
+            [];
+        TargetNode ->
+            get_references(TargetNode)
+    end.
+%%
+%%
+get_roots(Arrow,Dag) -> 
+    bitcask:fold(Dag,fun(K,V,Acc) ->
+                             Node = binary_to_term(V),
+                             Edges = proplists:lookup(Arrow,get_links(Node)),
+                             case Edges of
+                                 none ->
+                                     InEdges = proplists:lookup(Arrow,get_references(Node)),
+                                     case InEdges of
+                                         none -> Acc;
+                                         _ -> Acc ++ [K]
+                                     end;
+                                 _ -> Acc
+                             end
+                     end,[]).
+%%
+path_exists({_Source,_Arrow,_Target},_Dag) ->
+    ok.
+    
+
 
 %% internal private functions
 store_node(NodeId,Node,Dag) ->
@@ -191,6 +239,33 @@ get_edge_targets_test() ->
     ?assert(length(get_links(get_node(<<"001">>,Dag))) == 1),
     ?assert(length(get_edge_targets({<<"001">>,<<"002">>},Dag)) == 1),
     [<<"003">>] = get_edge_targets({<<"001">>,<<"002">>},Dag).
+%%
+get_edge_sources_test() ->
+    Dag = create_or_open_dag("onty4",true),
+    add_edge({<<"001">>,<<"002">>,<<"003">>},Dag),
+    ?assert(length(get_references(get_node(<<"003">>,Dag))) == 1),
+    ?assert(length(get_edge_sources({<<"003">>,<<"002">>},Dag)) == 1),
+    [<<"001">>] = get_edge_sources({<<"003">>,<<"002">>},Dag).
+%
+get_targets_test() ->
+    Dag = create_or_open_dag("onty5",true),
+    add_edge({<<"001">>,<<"002">>,<<"003">>},Dag),
+    ?assert(length(get_targets(<<"001">>,Dag)) == 1),
+    [{<<"002">>,[<<"003">>]}] = get_targets(<<"001">>,Dag).
+%%
+get_sources_test() ->
+    Dag = create_or_open_dag("onty6",true),
+    add_edge({<<"001">>,<<"002">>,<<"003">>},Dag),
+    ?assert(length(get_sources(<<"003">>,Dag)) == 1),
+    [{<<"002">>,[<<"001">>]}] = get_sources(<<"003">>,Dag).
+%%
+get_roots_test() ->
+    Dag = create_or_open_dag("onty7",true),
+    add_edge({<<"001">>,<<"002">>,<<"003">>},Dag),
+    ?assert(length(get_roots(<<"002">>,Dag)) == 1),
+    [<<"003">>] = get_roots(<<"002">>,Dag).
+    
+    
     
 %%
 -endif.
