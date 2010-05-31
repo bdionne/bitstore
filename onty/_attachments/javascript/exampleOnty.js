@@ -15,8 +15,8 @@ function addEvent(obj, type, fn) {
 
 
 function init(){
-  var db = new CouchDB("biomedgtnew", {"X-Couch-Full-Commit":"true"});
-  var isa_pred = db.open("6776ae29980ce9b2b243a4683b032dff");
+  var db = new CouchDB("bgt-bitcask", {"X-Couch-Full-Commit":"true"});
+  var isa_pred = db.open("02e40bd8f8b3d43d26e842633c0baa22");
   var result = db.getRoots(isa_pred);
 
   var roots = [];

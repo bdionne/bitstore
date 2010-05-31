@@ -39,7 +39,8 @@
          get_targets/2,
          get_sources/2,
          get_roots/2,
-         path_exists/2]).
+         path_exists/2,
+         close_dag/1]).
 %%
 -include("dag.hrl").
 %%
@@ -62,7 +63,7 @@ create_or_open_dag(DbName, CreateP) ->
         false ->
             ok
     end,
-    bitcask:open(DsName, [read_write, {max_file_size, 1000}]).
+    bitcask:open(DsName, [read_write, {max_file_size, 100000000}]).
 %%
 %%
 close_dag(Dag) ->
@@ -263,9 +264,17 @@ get_roots_test() ->
     Dag = create_or_open_dag("onty7",true),
     add_edge({<<"001">>,<<"002">>,<<"003">>},Dag),
     ?assert(length(get_roots(<<"002">>,Dag)) == 1),
-    [<<"003">>] = get_roots(<<"002">>,Dag).
-    
-    
+    [<<"003">>] = get_roots(<<"002">>,Dag). 
+%%
+get_multiple_roots_test() ->
+    Dag = create_or_open_dag("onty8",true),
+    add_edge({<<"001">>,<<"002">>,<<"003">>},Dag),
+    add_edge({<<"004">>,<<"002">>,<<"001">>},Dag),
+    add_edge({<<"001">>,<<"002">>,<<"005">>},Dag),
+    ?assert(length(get_roots(<<"002">>,Dag)) == 2),
+    Roots = get_roots(<<"002">>,Dag),
+    ?assert(lists:member(<<"003">>,Roots)),
+    ?assert(lists:member(<<"005">>,Roots)).
     
 %%
 -endif.

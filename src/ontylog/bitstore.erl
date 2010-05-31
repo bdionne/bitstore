@@ -42,14 +42,13 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--import(dag, [build_dag/1, 
-              add_edge/3,
-              remove_edge/3,
+-import(dag, [create_or_open_dag/2, 
+              add_edge/2,
+              remove_edge/2,
               get_edge_targets/2,
-              get_edge_sources/3,
-              get_roots/3,
+              get_edge_sources/2,
               path_exists/2,
-              persist_dag/2]).
+              close_dag/1]).
 
 -include("../../../couchdb/src/couchdb/couch_db.hrl").
 -define(ADMIN_USER_CTX, {user_ctx, #user_ctx{roles=[<<"_admin">>]}}).
@@ -127,7 +126,6 @@ persist_dag(DbName) ->
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
 init([]) ->
-    application:start(mnesia),
     {ok, #state{dbs=ets:new(dbnames_graphs,[set])}}.
 
 %%--------------------------------------------------------------------
@@ -141,48 +139,46 @@ init([]) ->
 %%--------------------------------------------------------------------
 handle_call({add_triple, Triplet, DbName}, _From, State) ->
     Dag = find_or_build_dag(State#state.dbs, DbName),
-    Dag2 = add_edge(Dag, Triplet, DbName),
-    ets:insert(State#state.dbs,{DbName, Dag2}),              
+    add_edge(Triplet, Dag),
     {reply, ok, State};
 handle_call({remove_triple, Triplet, DbName}, _From, State) ->
     #state{dbs=Tab} = State,
     Dag = find_or_build_dag(Tab, DbName),    
-    Dag2 = remove_edge(Dag, Triplet, DbName),
-    ets:insert(Tab,{DbName, Dag2}),              
+    remove_edge(Triplet, Dag),
     {reply, ok, #state{dbs=Tab}};
 handle_call({get_edge_targets, Pair, DbName}, _From, State) ->
     #state{dbs=Tab} = State,
     Dag = find_or_build_dag(Tab, DbName),
-    Nodes = get_edge_targets(Dag, Pair),
+    Nodes = get_edge_targets(Pair, Dag),
     {reply, Nodes, State};
 handle_call({get_edge_sources, Pair, DbName}, _From, State) ->
     #state{dbs=Tab} = State,
     Dag = find_or_build_dag(Tab, DbName),
-    Nodes = get_edge_sources(Dag, Pair, DbName),
+    Nodes = get_edge_sources(Pair, Dag),
     {reply, Nodes, State};
 handle_call({get_edges, SubId, DbName}, _From, State) ->
     #state{dbs=Tab} = State,
     Dag = find_or_build_dag(Tab, DbName),
-    ConceptDef = dag:get_targets(Dag, SubId),
+    ConceptDef = dag:get_targets(SubId, Dag),
     {reply, ConceptDef, State};
 handle_call({get_in_edges, SubId, DbName}, _From, State) ->
     #state{dbs=Tab} = State,
     Dag = find_or_build_dag(Tab, DbName),
-    ConceptDef = dag:get_sources(Dag, SubId, DbName),
+    ConceptDef = dag:get_sources(SubId, Dag),
     {reply, ConceptDef, State};
 handle_call({get_roots, PredId, DbName}, _From, State) ->
     #state{dbs=Tab} = State,
     Dag = find_or_build_dag(Tab, DbName),
-    Ids = dag:get_roots(Dag, PredId, DbName),
+    Ids = dag:get_roots(PredId, Dag),
     {reply, Ids, State};
 handle_call({path_exists, Triple, DbName}, _From, State) ->
     #state{dbs=Tab} = State,
     Dag = find_or_build_dag(Tab, DbName),
-    {reply, path_exists(Dag, Triple), State};
+    {reply, path_exists(Triple, Dag), State};
 handle_call({persist_dag, DbName}, _From, State) ->
      #state{dbs=Tab} = State,
     Dag = find_or_build_dag(Tab, DbName),
-    {reply, persist_dag(Dag, DbName), State}. 
+    {reply, close_dag(Dag), State}. 
 %%--------------------------------------------------------------------
 %% Function: handle_cast(Msg, State) -> {noreply, State} |
 %%                                      {noreply, State, Timeout} |
@@ -224,14 +220,15 @@ code_change(_OldVsn, State, _Extra) ->
 find_or_build_dag(Tab, DbName) ->
     case ets:lookup(Tab, DbName) of
         [] ->
-            NewDag = build_dag(DbName),
+            NewDag = create_or_open_dag(DbName, true),
             ets:insert(Tab, {DbName, NewDag}),
             NewDag;
-        [{DbName, ExistingDag}] -> ExistingDag
+        [{DbName, ExistingDag}] -> 
+            ExistingDag
     end.
 
 get_doc(DbName, DocId) ->
-    {ok, Doc} = open_doc(list_to_binary(atom_to_list(DbName)), DocId),
+    {ok, Doc} = open_doc(list_to_binary(DbName), DocId),
     Doc.
 
 

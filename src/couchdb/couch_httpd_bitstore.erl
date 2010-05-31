@@ -40,7 +40,7 @@ db_req(#httpd{method='GET',path_parts=[_,<<"_onty">>]}=Req, Db) ->
     Pred = couch_httpd:qs_value(Req, "pred"),
     Obj = couch_httpd:qs_value(Req, "obj"),
     Roots = couch_httpd:qs_value(Req,"roots"),
-    DbName = list_to_atom(?b2l(Db#db.name)),
+    DbName = ?b2l(Db#db.name),
 
     
     Docs = case Roots of
@@ -71,7 +71,7 @@ db_req(#httpd{method='POST',path_parts=[_,<<"_onty">>]}=Req, Db) ->
    
     case Save of
         undefined -> ok;
-        _ -> bitstore:persist_dag(list_to_atom(?b2l(Db#db.name)))
+        _ -> bitstore:persist_dag(?b2l(Db#db.name))
     end,
     send_json(Req, 202, {[{ok, true}]});
 
@@ -80,8 +80,8 @@ db_req(#httpd{method=Method,path_parts=[_,<<"_onty">>]}=Req, Db) ->
     Pred = ?l2b(couch_httpd:qs_value(Req, "pred")),
     Obj = ?l2b(couch_httpd:qs_value(Req, "obj")),
     case Method of
-        'PUT' -> bitstore:add_labeled_edge(Subj,Pred,Obj,list_to_atom(?b2l(Db#db.name)));
-        'DELETE' -> bitstore:remove_labeled_edge(Subj,Pred,Obj,list_to_atom(?b2l(Db#db.name)))
+        'PUT' -> bitstore:add_labeled_edge(Subj,Pred,Obj,?b2l(Db#db.name));
+        'DELETE' -> bitstore:remove_labeled_edge(Subj,Pred,Obj,?b2l(Db#db.name))
     end,
     send_json(Req, 202, {[{ok, true}]}).
 
