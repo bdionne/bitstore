@@ -42,7 +42,7 @@
          path_exists/2,
          close_dag/1]).
 %%
--include("dag.hrl").
+-include("bitstore.hrl").
 %%
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").

@@ -29,7 +29,7 @@
 
 -behavior(gen_server).
 
--include("indexer.hrl").
+-include("bitstore.hrl").
 
 -record(state, {dbs}).
 

@@ -20,7 +20,7 @@
 	 mapreduce/4, search/5]).
 -import(lists, [filter/2, foreach/2, map/2, reverse/1, foldl/3]).
 
--include("indexer.hrl").
+-include("bitstore.hrl").
 
 foreach_word_in_string(Str, F, Acc) ->
     case get_word(Str) of

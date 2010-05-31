@@ -16,7 +16,7 @@
 
 -export([init/2, resume/1, checkpoint/2, test/0]).
 
--include("indexer.hrl").
+-include("bitstore.hrl").
 %%-import(filelib, [is_file/1]).
 
 %%% init(DbIndexName, Term) -> true.   %% define initialize checkpoints in the index db

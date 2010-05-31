@@ -37,7 +37,7 @@
 
 -export([init/1, handle_call/3, handle_cast/2, terminate/2]).
 -import(filename, [join/2]).
--include("indexer.hrl").
+-include("bitstore.hrl").
 
 schedule_stop(Pid) ->
     RealStop = gen_server:call(Pid, schedule_stop, infinity),

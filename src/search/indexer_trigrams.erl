@@ -25,7 +25,8 @@ make_tables() ->
     makeSet().
 
 make_ordered_set() -> makeAset(ordered_set, "trigramsOS.tab").
-makeSet()        -> makeAset(set, "trigramsS.tab").
+makeSet()        -> makeAset(set, filename:dirname(code:which(?MODULE)) 
+			   ++ "/trigramsS.tab").
 
 makeAset(Type, FileName) ->		
     Tab = ets:new(table, [Type]),
@@ -77,7 +78,7 @@ howManyTrigrams() ->
 %% An iterator that iterates through all trigrams in the language
 
 for_each_trigram_in_the_english_language(F, A0) ->
-    {ok, Bin0} = file:read_file("354984si.ngl.gz"),
+    {ok, Bin0} = file:read_file("src/search/354984si.ngl.gz"),
     Bin = zlib:gunzip(Bin0),
     scan_word_list(binary_to_list(Bin), F, A0).
 

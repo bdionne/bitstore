@@ -45,8 +45,8 @@
          delete_indices/3
         ]).
 
--include("../../../couchdb/src/couchdb/couch_db.hrl").
--include("indexer.hrl").
+-include("../couchdb/src/couchdb/couch_db.hrl").
+-include("bitstore.hrl").
 
 -define(BATCH_SIZE, 1000).
 -define(ADMIN_USER_CTX, {user_ctx, #user_ctx{roles=[<<"_admin">>]}}).
