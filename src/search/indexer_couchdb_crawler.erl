@@ -45,7 +45,7 @@
          delete_indices/3
         ]).
 
--include("../couchdb/src/couchdb/couch_db.hrl").
+-include("couch_db.hrl").
 -include("bitstore.hrl").
 
 -define(BATCH_SIZE, 1000).

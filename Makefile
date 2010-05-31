@@ -1,7 +1,7 @@
 .SUFFIXES: .erl .beam
 
 .erl.beam:
-	erlc -I include -o ebin -W +debug_info -DTEST $<
+	erlc -I include -I ../couchdb/src/couchdb -o ebin -W +debug_info -DTEST $<
 
 MODS = src/ontylog/dag\
        src/ontylog/bitstore\

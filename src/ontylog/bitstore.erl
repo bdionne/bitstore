@@ -50,7 +50,7 @@
               path_exists/2,
               close_dag/1]).
 
--include("../couchdb/src/couchdb/couch_db.hrl").
+-include("couch_db.hrl").
 -define(ADMIN_USER_CTX, {user_ctx, #user_ctx{roles=[<<"_admin">>]}}).
 
 -record(state, {dbs}).
