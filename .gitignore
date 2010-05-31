@@ -4,3 +4,4 @@ trigramsS.tab
 checkpoints/*
 .DS_Store
 images/*
+doc/*.html

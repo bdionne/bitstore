@@ -50,6 +50,8 @@
               path_exists/2,
               close_dag/1]).
 
+-import(couch_store, [open_db/1, open_doc/2]).
+
 -include("couch_db.hrl").
 -define(ADMIN_USER_CTX, {user_ctx, #user_ctx{roles=[<<"_admin">>]}}).
 
@@ -232,20 +234,3 @@ get_doc(DbName, DocId) ->
     Doc.
 
 
-open_db(DbName) ->
-    couch_db:open(DbName, [?ADMIN_USER_CTX]).
-
-
-%%--------------------------------------------------------------------
-%% Function: open_doc(DbName, DocId) -> {ok,Doc} | {error,Error}
-%% Description: Gets the eJSON form of the Document
-%%--------------------------------------------------------------------
-open_doc(DbName, DocId) ->
-    {ok, Db} = open_db(DbName),
-    try
-        CouchDoc = couch_httpd_db:couch_doc_open(Db, DocId, nil, []),
-        Doc = couch_doc:to_json_obj(CouchDoc, []),
-        {ok, Doc}
-    after
-        catch couch_db:close(Db)
-    end.

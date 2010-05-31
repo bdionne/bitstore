@@ -3,7 +3,9 @@
 .erl.beam:
 	erlc -I include -I ../couchdb/src/couchdb -o ebin -W +debug_info -DTEST $<
 
-MODS = src/ontylog/dag\
+MODS = src/couchdb/couch_store\
+       src/couchdb/couch_httpd_bitstore\
+       src/ontylog/dag\
        src/ontylog/bitstore\
        src/search/indexer_checkpoint\
        src/search/indexer_porter\

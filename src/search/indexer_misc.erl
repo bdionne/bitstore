@@ -152,10 +152,10 @@ search(Str, Field, Ets, DbName, Idx) ->
                     lists:sublist(Indices1,100);
 		_ -> Indices1
             end,
-            {ok, Db} = indexer_couchdb_crawler:open_db(DbName),
+            {ok, Db} = couch_store:open_db(DbName),
             try
             [X || X <- map(fun(I) ->
-                                   case indexer_couchdb_crawler:open_doc_db(Db, I) of
+                                   case couch_store:open_doc_db(Db, I) of
                                        {ok, Doc} ->
                                    case Field of
                                        all ->
