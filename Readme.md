@@ -79,7 +79,7 @@ Bitstore is taking a bottoms up approach to DL by starting with a simple triple 
 
 where all terms with the same subject are implicitly conjoined together as part of a concept. The triples contain the ids for the docs, the names above are just for clarity. Notice that **isa** and **route-of-administration** are relations and in general will connect multiples pairs of documents, nevertheless each relation will have a document associated with it, where we might store additional information such as whether the relation is transitive or has a converse. So all the information about what in a DL one might consider the schema, the relations, are stored as docs as well as the concepts but they are still completely independent of one another. The relations betwen docs are stored in the triple store and are orthogonal to the documents. This contrasts with the approach taken by [Riak](http://github.com/zeitgeist/riak/) with its **links** that are contained in the docs. Of course this requires that the triple store stay in sync as the document store is changing.
 
-Initially we're using Mnesia for the triple store. It provides a simple solution and inherits all the best of erlang, nodes can be replicated, etc.. It does have a size limitation but we're storing triples of integers so it will be a while before we run into any limits. This piece will also be readily replaceable, .eg. if at some point couchdb enables a tighter integration in the same vm. 
+Initially we used Mnesia for the triple store. It provided a simple solution and inherited all the best of erlang, the QLC stuff was especially nice. Currently we're using [bitcask](http://github.com/basho/bitcask)  which might not seem ideal for storing a graph but early hacks indicate it will be adequate for the small ontologies we're using and it's somewhat simpler to use is for both the triple store and the inverted index. We'll discuss the storage model in more detail if the design proves to be interesting.
 
 ### Directed Acyclic Graphs
 
@@ -87,7 +87,7 @@ It's fairly easy to view a triple store as a labelled graph, where each triple <
 
 ### Full Text Indexing
 
-We've also added FTI to Bitstore, embedding the [work](http://github.com/bdionne/bitstore/tree/bitcask/src/search) based on the ideas in the Armstrong book. Currently we index all the values in all the docs and then use the changes api to incrementally update the indices. Originally we stored the indices as couch dbs, which works surprisingly well, but we've been expirementing with different back ends. Currently we are using [bitcask](http://github.com/basho/bitcask) which is an append only key value store. So far the performance of this is excellent. It has a merge opertaion which accomplishes the same function as couchdb's compact. This is necessary when writing an inverted index as the same records are written often.
+We've also added FTI to Bitstore, embedding the [work](http://github.com/bdionne/indexer) based on the ideas in the Armstrong book. Currently we index all the values in all the docs and then use the changes api to incrementally update the indices. Originally we stored the indices as couch dbs, which works surprisingly well, but we've been expirementing with different back ends. Currently we are using [bitcask](http://github.com/basho/bitcask) which is an append only key value store. So far the performance of this is excellent. It has a merge operation which accomplishes the same function as couchdb's compact. This is necessary when writing an inverted index as the same records are written often.
 
 So basically:
 
@@ -101,7 +101,7 @@ One should be able to ignore the DL component ontylog and use it simply as a gra
 
 ### Building
 
-As mentioned above, in order to build and run a slightly modified version of [couchdb](http://github.com/bdionne/couchdb/tree/bitstore) is needed. For best results bitstore and couchdb should be installed at the same level in the file system, .eg.
+Bitstore is now much easier to build. The modified [couchdb](http://github.com/bdionne/couchdb/tree/bitstore) branch now only has some small mods in Futon and the couch.js client libs to extend the APIs. For best results bitstore and couchdb should be installed at the same level in the file system, .eg.
 
     ~/emacs/couchdb
     ~/emacs/bitstore
@@ -112,9 +112,7 @@ Bitcask is also needed:
 
 Bitcask is easy to build, just type make in the top level. You can modify the rebar.config to use git for a dependency bitcask needs (ebloom) if you don't have hg installed
 
-The changes to the couchdb config file that are needed are [here](http://github.com/bdionne/bitstore/blob/config/couch.ini) and can be added to local_dev.ini in couchdb/etc/couchdb. Bitstore now has a single top level make that builds both the indexer and ontylog, compiling the erlang into the ebin directory. The -I include option in the Makefile needs to specify the location of couchdb's header. 
-
-A copy of ~/emacs/bitstore/src/couchdb/couch_httpd\_bitstore.erl should be placed in ~/emacs/couchch/src/couchdb and an entry added to ~/emacs/couchdb/src/couchdb/Makefile.am. This has already been done if you checkout the couchdb branch mentioned above.
+The changes to the couchdb config file that are needed are [here](http://github.com/bdionne/bitstore/blob/master/config/couch.ini) and can be added to local_dev.ini in couchdb/etc/couchdb. Bitstore now has a single top level make that builds both the indexer and ontylog, compiling the erlang into the ebin directory. The -I include option in the Makefile needs to specify the location of couchdb's header.
 
 The hardest part is starting couch correctly with all the needed paths. 
 
@@ -122,7 +120,7 @@ The hardest part is starting couch correctly with all the needed paths.
 
     ERL_FLAGS="-sname couch@localhost -pa ../bitstore/ebin -pa ../bitcask/ebin -pa ../bitcask/deps/ebloom/ebin ./utils/run -i
 
-Notice the command use relative paths to pick up files from the bitstore project. 
+Notice the command use relative paths to pick up files from the bitstore project. The -sname option is not required but it useful when using debug tools such as Distel in emacs.
 
 
 ### Opinion
