@@ -112,24 +112,17 @@ Bitcask is also needed:
 
 Bitcask is easy to build, just type make in the top level. You can modify the rebar.config to use git for a dependency bitcask needs (ebloom) if you don't have hg installed
 
-The changes to the couchdb config file that are needed are [here](http://github.com/bdionne/bitstore/blob/bitcask/config/couch.ini) and can be added to local_dev.ini in couchdb/etc/couchdb. The two daemons, indexer and bitstore each have their own make
+The changes to the couchdb config file that are needed are [here](http://github.com/bdionne/bitstore/blob/config/couch.ini) and can be added to local_dev.ini in couchdb/etc/couchdb. Bitstore now has a single top level make that builds both the indexer and ontylog, compiling the erlang into the ebin directory. The -I include option in the Makefile needs to specify the location of couchdb's header. 
 
-    cd ~/emacs/bitstore/src/ontylog
-    ... make
-    cd ../search
-    ... make
-
-a copy of ~/emacs/bitstore/src/couchdb/couch_httpd\_bitstore.erl should be placed in ~/emacs/couchch/src/couchdb and an entry added to ~/emacs/couchdb/src/couchdb/Makefile.am. This has already been done if you checkout the couchdb branch mentioned above.
+A copy of ~/emacs/bitstore/src/couchdb/couch_httpd\_bitstore.erl should be placed in ~/emacs/couchch/src/couchdb and an entry added to ~/emacs/couchdb/src/couchdb/Makefile.am. This has already been done if you checkout the couchdb branch mentioned above.
 
 The hardest part is starting couch correctly with all the needed paths. 
 
     cd ~/emacs/couchdb
 
-    ERL_FLAGS="-sname couch@localhost +P 100000 -pa ../bitstore/src/search -pa ../bitstore/src/ontylog -pa ../bitcask/ebin -pa ../bitcask/deps/ebloom/ebin -mnesia dir \'"tmp/foo"\'" ./utils/run -i
+    ERL_FLAGS="-sname couch@localhost -pa ../bitstore/ebin -pa ../bitcask/ebin -pa ../bitcask/deps/ebloom/ebin ./utils/run -i
 
-Notice the command use relative paths to pick up files from the bitstore project. Mnesia is only required for the ontylog piece. If you're just interested in FTI you can ignore it
-
-
+Notice the command use relative paths to pick up files from the bitstore project. 
 
 
 ### Opinion
