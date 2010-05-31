@@ -28,11 +28,27 @@
   <br/>
   </p>
   <p>
-  Currently bitstore is mostly a prototype effort with two major extensions to couchdb. The first, <a href="http://github.com/bdionne/bitstore/tree/master/src/search">native full text indexing</a> provides support for searching over documents and is based on ideas from the erlang book. The second, a <a href="http://github.com/bdionne/bitstore/tree/master/src/ontylog">triple store</a> implementation of ontylog is currently using mnesia as it provides a simple persistence mechanism that inherits all the distributed awesomeness of erlang. Ontylog is still the most scalable description logic classifier to date. A secondary goal of this effort is to take scalability up to the next level. We think ontologies with a million concepts should be classifiable in a couple of minutes not hours.
+  Bitstore is mostly a prototype effort with two major extensions to
+  couchdb. The first, <a
+  href="http://github.com/bdionne/bitstore/tree/master/src/search">native
+  full text indexing</a> provides support for searching over documents
+  and is based on ideas from the erlang book. The second, a <a
+  href="http://github.com/bdionne/bitstore/tree/master/src/ontylog">triple
+  store</a> implementation of ontylog is built on top of a graph
+  database which is using <a
+  href="http://github.com/basho/bitcask">Bitcask</a> for persistence. Ontylog is still the most scalable description logic classifier to date. A secondary goal of this effort is to take scalability up to the next level. We think ontologies with a million concepts should be classifiable in a couple of minutes not hours.
   </p>
   <br/>
   <br/>
-  <p>The sources for bitstore can be downloaded <a href="http://github.com/bdionne/bitstore/archives/master">here</a>, and the sources for the modified couchdb branch are <a href="http://github.com/bdionne/couchdb/archives/bitstore">here</a>. The modifications to couchdb are minor. It's hoped that at some point, perhaps post 1.0, a server side plugin architecture for couchdb will enable extensions such as this to be dropped in with just a config file entry. The beauty of erlang and the couchdb design is that it is so elegant and simple it doesn't take a lot of work to see how to extend it.  
+  <p>The sources for bitstore can be downloaded <a
+  href="http://github.com/bdionne/bitstore/archives/master">here</a>,
+  and the sources for the modified couchdb branch are <a
+  href="http://github.com/bdionne/couchdb/archives/bitstore">here</a>. The
+  modifications to couchdb are minor. CouchDB is designed in such a
+  way that additional modules can be loaded by the server by
+  specifying them in a config file. The Bitstore extensions access the
+  CouchDB storage layer and it's hoped, perhaps post 1.0, a server
+  side API for storage access will emerge.
   </p>
    <br/>
   <br/>
