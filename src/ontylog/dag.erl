@@ -43,6 +43,7 @@
          close_dag/1]).
 %%
 -include("bitstore.hrl").
+-import(bitcask, [open/2,get/2,put/3,fold/3,close/1]).
 %%
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -63,11 +64,11 @@ create_or_open_dag(DbName, CreateP) ->
         false ->
             ok
     end,
-    bitcask:open(DsName, [read_write, {max_file_size, 100000000}]).
+    open(DsName, [read_write, {max_file_size, 100000000}]).
 %%
 %%
 close_dag(Dag) ->
-    bitcask:close(Dag).
+    close(Dag).
 %%
 %%
 add_edge({Source, Arrow, Target},Dag) ->
@@ -133,19 +134,20 @@ get_sources(Target,Dag) ->
 %%
 %%
 get_roots(Arrow,Dag) -> 
-    bitcask:fold(Dag,fun(K,V,Acc) ->
-                             Node = binary_to_term(V),
-                             Edges = proplists:lookup(Arrow,get_links(Node)),
-                             case Edges of
-                                 none ->
-                                     InEdges = proplists:lookup(Arrow,get_references(Node)),
-                                     case InEdges of
-                                         none -> Acc;
-                                         _ -> Acc ++ [K]
-                                     end;
-                                 _ -> Acc
-                             end
-                     end,[]).
+    fold(Dag,
+                 fun(K,V,Acc) ->
+                         Node = binary_to_term(V),
+                         Edges = proplists:lookup(Arrow,get_links(Node)),
+                         case Edges of
+                             none ->
+                                 InEdges = proplists:lookup(Arrow,get_references(Node)),
+                                 case InEdges of
+                                     none -> Acc;
+                                     _ -> Acc ++ [K]
+                                 end;
+                             _ -> Acc
+                         end
+                 end,[]).
 %%
 path_exists({_Source,_Arrow,_Target},_Dag) ->
     ok.
@@ -154,7 +156,7 @@ path_exists({_Source,_Arrow,_Target},_Dag) ->
 
 %% internal private functions
 store_node(NodeId,Node,Dag) ->
-    bitcask:put(Dag,NodeId,term_to_binary(Node)).
+    put(Dag,NodeId,term_to_binary(Node)).
 %%
 %%
 get_links(Node) ->
@@ -167,7 +169,7 @@ get_references(Node) ->
 %%
 %% 
 get_node(NodeId, Dag) ->
-    case bitcask:get(Dag, NodeId) of
+    case get(Dag, NodeId) of
         not_found ->
             %% return empty if node doesn't exist, saves call
             [];
@@ -226,8 +228,7 @@ add_edge_test() ->
     close_dag(Dag).
 %%
 remove_edge_test() ->
-    %% use a different db, onty2, to workaround bug in bitcask
-    Dag = create_or_open_dag("onty2",true),
+    Dag = create_or_open_dag("onty",true),
     add_edge({<<"001">>,<<"002">>,<<"003">>},Dag),
     ?assert(length(get_links(get_node(<<"001">>,Dag))) == 1),
     remove_edge({<<"001">>,<<"002">>,<<"003">>},Dag),
@@ -235,46 +236,52 @@ remove_edge_test() ->
     close_dag(Dag).
 %%
 get_edge_targets_test() ->
-    Dag = create_or_open_dag("onty3",true),
+    Dag = create_or_open_dag("onty",true),
     add_edge({<<"001">>,<<"002">>,<<"003">>},Dag),
     ?assert(length(get_links(get_node(<<"001">>,Dag))) == 1),
     ?assert(length(get_edge_targets({<<"001">>,<<"002">>},Dag)) == 1),
-    [<<"003">>] = get_edge_targets({<<"001">>,<<"002">>},Dag).
+    [<<"003">>] = get_edge_targets({<<"001">>,<<"002">>},Dag),
+    close_dag(Dag).
 %%
 get_edge_sources_test() ->
-    Dag = create_or_open_dag("onty4",true),
+    Dag = create_or_open_dag("onty",true),
     add_edge({<<"001">>,<<"002">>,<<"003">>},Dag),
     ?assert(length(get_references(get_node(<<"003">>,Dag))) == 1),
     ?assert(length(get_edge_sources({<<"003">>,<<"002">>},Dag)) == 1),
-    [<<"001">>] = get_edge_sources({<<"003">>,<<"002">>},Dag).
+    [<<"001">>] = get_edge_sources({<<"003">>,<<"002">>},Dag),
+    close_dag(Dag).
 %
 get_targets_test() ->
-    Dag = create_or_open_dag("onty5",true),
+    Dag = create_or_open_dag("onty",true),
     add_edge({<<"001">>,<<"002">>,<<"003">>},Dag),
     ?assert(length(get_targets(<<"001">>,Dag)) == 1),
-    [{<<"002">>,[<<"003">>]}] = get_targets(<<"001">>,Dag).
+    [{<<"002">>,[<<"003">>]}] = get_targets(<<"001">>,Dag),
+    close_dag(Dag).
 %%
 get_sources_test() ->
-    Dag = create_or_open_dag("onty6",true),
+    Dag = create_or_open_dag("onty",true),
     add_edge({<<"001">>,<<"002">>,<<"003">>},Dag),
     ?assert(length(get_sources(<<"003">>,Dag)) == 1),
-    [{<<"002">>,[<<"001">>]}] = get_sources(<<"003">>,Dag).
+    [{<<"002">>,[<<"001">>]}] = get_sources(<<"003">>,Dag),
+    close_dag(Dag).
 %%
 get_roots_test() ->
-    Dag = create_or_open_dag("onty7",true),
+    Dag = create_or_open_dag("onty",true),
     add_edge({<<"001">>,<<"002">>,<<"003">>},Dag),
     ?assert(length(get_roots(<<"002">>,Dag)) == 1),
-    [<<"003">>] = get_roots(<<"002">>,Dag). 
+    [<<"003">>] = get_roots(<<"002">>,Dag),
+    close_dag(Dag).
 %%
 get_multiple_roots_test() ->
-    Dag = create_or_open_dag("onty8",true),
+    Dag = create_or_open_dag("onty",true),
     add_edge({<<"001">>,<<"002">>,<<"003">>},Dag),
     add_edge({<<"004">>,<<"002">>,<<"001">>},Dag),
     add_edge({<<"001">>,<<"002">>,<<"005">>},Dag),
     ?assert(length(get_roots(<<"002">>,Dag)) == 2),
     Roots = get_roots(<<"002">>,Dag),
     ?assert(lists:member(<<"003">>,Roots)),
-    ?assert(lists:member(<<"005">>,Roots)).
+    ?assert(lists:member(<<"005">>,Roots)),
+    close_dag(Dag).
     
 %%
 -endif.
