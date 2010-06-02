@@ -33,12 +33,15 @@
 %%
 %%
 classify(Dag) ->
+    %% create new digraph and add vertex for each node in the cask, using the key for the label
+    %% add single edge for each link
     NewFacts = fold(Dag,
                     fun(_Id,Concept,Acc) ->
                             classify(Dag,Concept) ++ Acc
                     end,[]),
     store_new_facts(NewFacts).
 %%
+%% 0. topologically sort concepts with respect to the "isa" relation
 %% 1. compute the LUBs for the concept
 %% 2. using the LUBs as roots, compute the GLBs
 %% 
@@ -50,7 +53,10 @@ classify(Dag) ->
 %%    by definitions
 %%
 %% Normally this requires marking algorithms to make it efficient, detect diamonds, etc..
-%% it's not clear how to pull this off without writing some temporary bits in the cask
+%% it's not clear how to pull this off without writing some temporary bits in the cask. Perhaps
+%% the digraph and digraph_utils modules will be sufficient, as they support labels on vertices.
+%% They can be used to store colors, prim/def bits, visited, and classified bits for recursive 
+%% calls
 %%
 classify(_Dag, _Concept) ->    
     ok.
