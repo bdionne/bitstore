@@ -50,19 +50,19 @@
 -endif.
 %%
 %%
-create_or_open_dag(DbName, CreateP) ->
+create_or_open_dag(DbName, Refresh) ->
     DsName = DbName ++ "-dag",
     case filelib:is_dir(DsName) of
         true ->
-            case CreateP of
+            case Refresh of
                 true ->
                     ?LOG(?DEBUG, "removing dag store for ~p ~n",[DsName]),
                     os:cmd("rm -rf " ++ DsName);
                 false ->
                     ok
-            end;
+            end;            
         false ->
-            ok
+            ok            
     end,
     open(DsName, [read_write, {max_file_size, 100000000}]).
 %%
@@ -96,7 +96,7 @@ get_edge_targets({Source, Arrow},Dag) ->
             Edges = proplists:lookup(Arrow,get_links(SourceNode)),
             case Edges of
                 none ->
-                    none;
+                    [];
                 {Arrow, Targets} -> Targets
             end
     end.
@@ -109,7 +109,7 @@ get_edge_sources({Target, Arrow},Dag) ->
             Edges = proplists:lookup(Arrow,get_references(TargetNode)),
             case Edges of
                 none ->
-                    none;
+                    [];
                 {Arrow, Sources} -> Sources
             end
     end.
@@ -134,20 +134,21 @@ get_sources(Target,Dag) ->
 %%
 %%
 get_roots(Arrow,Dag) -> 
-    fold(Dag,
-                 fun(K,V,Acc) ->
-                         Node = binary_to_term(V),
-                         Edges = proplists:lookup(Arrow,get_links(Node)),
-                         case Edges of
-                             none ->
-                                 InEdges = proplists:lookup(Arrow,get_references(Node)),
-                                 case InEdges of
-                                     none -> Acc;
-                                     _ -> Acc ++ [K]
-                                 end;
-                             _ -> Acc
-                         end
-                 end,[]).
+    fold(
+      Dag,
+      fun(K,V,Acc) ->
+              Node = binary_to_term(V),
+              Edges = proplists:lookup(Arrow,get_links(Node)),
+              case Edges of
+                  none ->
+                      InEdges = proplists:lookup(Arrow,get_references(Node)),
+                      case InEdges of
+                          none -> Acc;
+                          _ -> Acc ++ [K]
+                      end;
+                  _ -> Acc
+              end
+      end,[]).
 %%
 path_exists({_Source,_Arrow,_Target},_Dag) ->
     ok.

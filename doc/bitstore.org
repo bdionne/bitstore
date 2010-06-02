@@ -3,7 +3,7 @@
 #+EMAIL:     dionne@dionne-associates.com
 #+LANGUAGE:  en
 #+TEXT:      Some development notes on bitsore, motivation, architecture, etc..
-#+OPTIONS:   H:3 num:t toc:t \n:nil @:t ::t |:t ^:t -:t f:t *:t TeX:t LaTeX:nil skip:t d:nil tags:not-in-toc
+#+OPTIONS:   H:3 num:t toc:nil \n:nil @:t ::t |:t ^:t -:t f:t *:t TeX:t LaTeX:nil skip:t d:nil tags:not-in-toc
 * Introduction
 Bitstore is a new approach to terminology development that aspires to support collaborative federated terminologies at web scale. It departs somewhat from traditional description logic based systems in that it makes a clear separation between definitions (syntax) and inferencing (semantics), taking fully into account that terminology construction is as much about document and content management as it is about building taxonomies, semantic navigation, and making inferences about ontologies. It is fairly accurate to say that the
 focus to date has always been on data structures motivated by the use of description logics.

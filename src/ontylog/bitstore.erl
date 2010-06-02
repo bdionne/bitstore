@@ -35,8 +35,7 @@
          get_targets/2,
          get_sources/2,
          get_roots/2,
-         is_related/4,
-         persist_dag/1]).
+         is_related/4]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -53,6 +52,8 @@
 -import(couch_store, [open_db/1, open_doc/2]).
 
 -include("couch_db.hrl").
+-include("bitstore.hrl").
+
 -define(ADMIN_USER_CTX, {user_ctx, #user_ctx{roles=[<<"_admin">>]}}).
 
 -record(state, {dbs}).
@@ -112,9 +113,6 @@ get_roots(Pred, DbName) ->
 
 is_related(SubId,PredId,TargetId,DbName) ->
     gen_server:call(?MODULE, {path_exists, {SubId, PredId, TargetId}, DbName}, infinity).
-
-persist_dag(DbName) ->
-    gen_server:call(?MODULE, {persist_dag, DbName}, infinity).
 
 %%====================================================================
 %% gen_server callbacks
@@ -176,11 +174,7 @@ handle_call({get_roots, PredId, DbName}, _From, State) ->
 handle_call({path_exists, Triple, DbName}, _From, State) ->
     #state{dbs=Tab} = State,
     Dag = find_or_build_dag(Tab, DbName),
-    {reply, path_exists(Triple, Dag), State};
-handle_call({persist_dag, DbName}, _From, State) ->
-     #state{dbs=Tab} = State,
-    Dag = find_or_build_dag(Tab, DbName),
-    {reply, close_dag(Dag), State}. 
+    {reply, path_exists(Triple, Dag), State}.
 %%--------------------------------------------------------------------
 %% Function: handle_cast(Msg, State) -> {noreply, State} |
 %%                                      {noreply, State, Timeout} |
@@ -206,8 +200,13 @@ handle_info(_Info, State) ->
 %% cleaning up. When it returns, the gen_server terminates with Reason.
 %% The return value is ignored.
 %%--------------------------------------------------------------------
-terminate(_Reason, _State) ->
-    ok.
+terminate(_Reason, State) ->
+    #state{dbs=Tab} = State,
+    ets:foldl(fun({_Key,Dag},Acc) ->
+                      close_dag(Dag),
+                      Acc
+              end,[],Tab),
+    ?LOG(?INFO,"closed all dags ~n",[]).
 
 %%--------------------------------------------------------------------
 %% Func: code_change(OldVsn, State, Extra) -> {ok, NewState}
@@ -222,7 +221,7 @@ code_change(_OldVsn, State, _Extra) ->
 find_or_build_dag(Tab, DbName) ->
     case ets:lookup(Tab, DbName) of
         [] ->
-            NewDag = create_or_open_dag(DbName, true),
+            NewDag = create_or_open_dag(DbName, false),
             ets:insert(Tab, {DbName, NewDag}),
             NewDag;
         [{DbName, ExistingDag}] -> 

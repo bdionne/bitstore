@@ -7,6 +7,7 @@ MODS = src/couchdb/couch_store\
        src/couchdb/couch_httpd_bitstore\
        src/ontylog/dag\
        src/ontylog/bitstore\
+       src/ontylog/classifier\
        src/search/indexer_checkpoint\
        src/search/indexer_porter\
        src/search/indexer_words\

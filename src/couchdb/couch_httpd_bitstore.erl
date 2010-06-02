@@ -10,14 +10,16 @@
     start_chunked_response/3, absolute_uri/2, send/2,
     start_response_length/4]).
 
-%% -record(doc_query_args, {
-%%     options = [],
-%%     rev = nil,
-%%     open_revs = [],
-%%     update_type = interactive_edit,
-%%     atts_since = nil
-%% }).
 
+%% Bitstore hacks for FTI
+handle_index_req(#httpd{method='POST'}=Req, Db) ->
+    Stop = couch_httpd:qs_value(Req, "stop","false"),
+    case Stop of
+	"true" -> 
+	    indexer:stop_indexing(?b2l(Db#db.name));
+	_ -> indexer:start_indexing(?b2l(Db#db.name))
+    end,
+    send_json(Req, 202, {[{ok, true}]}).
 
 
 db_req(#httpd{method='GET',path_parts=[_,<<"_index_query">>]}=Req, Db) ->
@@ -34,6 +36,8 @@ db_req(#httpd{method='GET',path_parts=[_,<<"_index_query">>]}=Req, Db) ->
             {offset, 0},
             {rows, Docs}
         ]});
+
+%% Bitstore hacks for Ontylog
 
 db_req(#httpd{method='GET',path_parts=[_,<<"_onty">>]}=Req, Db) ->
     Subj = couch_httpd:qs_value(Req, "subj"),
@@ -66,15 +70,6 @@ db_req(#httpd{method='GET',path_parts=[_,<<"_onty">>]}=Req, Db) ->
             {rows, Docs}
         ]});
 
-db_req(#httpd{method='POST',path_parts=[_,<<"_onty">>]}=Req, Db) ->
-    Save = ?l2b(couch_httpd:qs_value(Req, "save")),
-   
-    case Save of
-        undefined -> ok;
-        _ -> bitstore:persist_dag(?b2l(Db#db.name))
-    end,
-    send_json(Req, 202, {[{ok, true}]});
-
 db_req(#httpd{method=Method,path_parts=[_,<<"_onty">>]}=Req, Db) ->
     Subj = ?l2b(couch_httpd:qs_value(Req, "subj")),
     Pred = ?l2b(couch_httpd:qs_value(Req, "pred")),
@@ -89,12 +84,3 @@ db_req(#httpd{method=Method,path_parts=[_,<<"_onty">>]}=Req, Db) ->
 
 
 
-%% bitstore hacks
-handle_index_req(#httpd{method='POST'}=Req, Db) ->
-    Stop = couch_httpd:qs_value(Req, "stop","false"),
-    case Stop of
-	"true" -> 
-	    indexer:stop_indexing(?b2l(Db#db.name));
-	_ -> indexer:start_indexing(?b2l(Db#db.name))
-    end,
-    send_json(Req, 202, {[{ok, true}]}).
