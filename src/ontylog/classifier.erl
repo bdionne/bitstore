@@ -26,12 +26,17 @@
 
 -include("bitstore.hrl").
 
--export([classify/2,
+-export([classify/3,
          subsumes_p/2]).
 %%
 -import(bitcask, [get/2,put/3,fold/3]).
--import(digraph, [new/1,add_vertex/1,add_vertex/3,add_edge/4]).
+-import(digraph, [new/1,add_vertex/1,add_vertex/3,add_edge/4, vertex/2]).
 -import(lists, [map/2]).
+%%
+%%
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+-endif.
 %%
 %%
 %% 0. topologically sort concepts with respect to the "isa" relation
@@ -56,44 +61,51 @@
 %% classification in traditional DLs is always with respect to the "isa" relation but
 %% one can imagine other interencing algorithms over different relations
 %%
-classify(DagCask,Arrow) ->
+classify(DagCask,Arrow,ClassifyFun) ->
 
     %% create new digraph and add vertex for each node in the cask, using the key for the label
     %% add single edge for each link
-    Dag = new([acyclic, private]),
+    Dag = new([acyclic]),
 
-    ets:new(vertex_ids,[set]),
+    Vids = ets:new(vertex_ids,[set]),
 
     %% nothing can happen without ***Thing***
     Root = add_labeled_vertex(Dag,<<"0">>),    
     
     %% first get all vertices created so that forward refences can be resolved 
     fold(DagCask,
-         fun(K,_Concept,_Acc) ->
-                 ets:insert(vertex_ids,{K, add_labeled_vertex(Dag,K)})
-         end,[]),
+         fun(K,_Concept,Tab) ->
+                 ?LOG(?DEBUG,"creating vertex for ~p ~n",[K]),
+                 ets:insert(Tab,{K, add_labeled_vertex(Dag,K)}),
+                 Tab
+         end,Vids),
 
     %% now add all the edges. Note that we could get all the relations from each node
     %% in this single pass, which is more efficient, but correctness comes first so 
     %% we'll keep it dirt simple
     fold(DagCask,
-         fun(K,Concept,_Acc) ->
-                 case proplists:lookup(Arrow,element(1, Concept)) of
+         fun(K,Concept,Tab) ->
+                 case proplists:lookup(Arrow,element(1, binary_to_term(Concept))) of
                      none ->
                          %% node is a root wrt Arrow relation, add ***Thing*** as parent
-                         add_edge(Dag,find_vertex(K),Root,Arrow);
+                         add_edge(Dag,find_vertex(K,Tab),Root,Arrow);
                      {Arrow, Targets} ->
                          map(fun(Target) ->
-                                     add_edge(Dag,find_vertex(K),find_vertex(Target),Arrow)
+                                     add_edge(Dag,find_vertex(K,Tab),find_vertex(Target,Tab),
+                                              Arrow)
                              end,Targets)
-                 end
-         end,[]),
+                 end,
+                 Tab
+         end,Vids),
 
     %% Visit concepts in topological order and classify each
     Inferences = map(fun(Concept) ->
-                             classify_con(Dag, Concept)
+                             ClassifyFun(Dag, Concept)
                      end, 
-                     digraph_utils:topsort(Dag)),
+                     lists:reverse(digraph_utils:topsort(Dag))),
+    map(fun(Inf) ->
+                ?LOG(?DEBUG,"The inference is ~p ~n",[element(2,Inf)])
+        end,Inferences),
     %%
     %% store the new inferecences in the cask
     map(fun(NewFacts) ->
@@ -102,8 +114,12 @@ classify(DagCask,Arrow) ->
     
     ok.
 
-classify_con(_Dag, _Concept) ->    
-    ok.
+classify_con(Dag, Concept) ->
+    V = vertex(Dag, Concept),
+    ?LOG(?DEBUG,"classifying ~p ~n",[element(2,V)]),
+    V.
+    
+    
                  
 %%
 %%
@@ -120,9 +136,25 @@ add_labeled_vertex(Dag,Label) ->
     add_vertex(Dag,V,Label).
 %%
 %%
-find_vertex(Key) ->
-    case ets:lookup(vertex_ids,Key) of
+find_vertex(Key,Tab) ->
+    case ets:lookup(Tab,Key) of
         [] ->
              [];
-        [{key, V}] -> V
+        [{Key, V}] -> V
     end.
+%% 
+%% EUnit tests
+%% 
+-ifdef(TEST).
+%%
+topo_sort_test() ->
+    %% simple diamon with single root node
+    Dag = dag:create_or_open_dag("onty1",true),
+    dag:add_edge({<<"001">>,<<"002">>,<<"003">>},Dag),
+    dag:add_edge({<<"004">>,<<"002">>,<<"003">>},Dag),
+    dag:add_edge({<<"005">>,<<"002">>,<<"004">>},Dag),
+    dag:add_edge({<<"005">>,<<"002">>,<<"001">>},Dag),
+    classify(Dag,<<"002">>,fun classify_con/2).
+                          
+    
+-endif.
