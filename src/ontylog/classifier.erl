@@ -26,14 +26,13 @@
 
 -include("bitstore.hrl").
 
--export([classify/3,
-         subsumes_p/2]).
+-export([classify/3]).
 %%
 -import(bitcask, [get/2,put/3,fold/3]).
 -import(digraph, [new/1,add_vertex/1,add_vertex/3,
-                  in_neighbors/2,
+                  in_neighbours/2, get_path/3,
                   add_edge/4, out_degree/2, vertex/2]).
--import(lists, [map/2, reverse/1]).
+-import(lists, [map/2, any/2, reverse/1]).
 %%
 %%
 -ifdef(TEST).
@@ -99,8 +98,8 @@ classify(DagCask,Arrow,ClassifyFun) ->
 
     SortedConcepts = lists:reverse(digraph_utils:topsort(Dag)),
 
-    %% nothing can happen without ***Thing***
-    add_labeled_vertex(Dag,{thing(),classified}),
+    %% nothing can happen without ***Thing***    
+    ets:insert(Vids,{thing(),add_labeled_vertex(Dag,{thing(),classified})}),
 
     %% Visit concepts in topological order and classify each
     %% As each concept is classified new edges may be added to
@@ -109,11 +108,16 @@ classify(DagCask,Arrow,ClassifyFun) ->
     %% {subj,pred,obj}
     %%
     Inferences = map(fun(Concept) ->
-                             ClassifyFun(Dag,Concept,Arrow)
+                             ClassifyFun(Vids,Dag,Concept,Arrow)
                      end,
                      SortedConcepts),
+    ?LOG(?DEBUG,"There are ~p inferences.~n",[Inferences]),
     map(fun(Inf) ->
-                ?LOG(?DEBUG,"The inference is ~p ~n",[element(2,Inf)])
+                case Inf of
+                    [] ->
+                        ?LOG(?DEBUG,"The inference is empty ~n",[]);
+                    _ -> ?LOG(?DEBUG,"The inference is ~p ~n",[element(2,Inf)])
+                end
         end,Inferences),
     %%
     %% store the new inferecences in the cask
@@ -123,12 +127,13 @@ classify(DagCask,Arrow,ClassifyFun) ->
     
     ok.
 
-classify_con(Dag, Concept, Arrow) ->
+classify_con(LookUpTab, Dag, Concept, Arrow) ->
     print_concept(Dag,Concept),
-    Thing = find_vertex(thing(),Dag),
-    %% Thing subsumes all concepts so we start there
+    Thing = find_vertex(thing(),LookUpTab),
+    %% ***Thing*** subsumes all concepts so we start there
     case out_degree(Dag,Concept) of
-        0 -> 
+        0 ->
+            %% Concept has no parents to add ***Thing***
             add_edge(Dag,Concept,Thing,Arrow);
         _ ->
             ok
@@ -137,19 +142,21 @@ classify_con(Dag, Concept, Arrow) ->
     %% that subsume the given concept and are subsumed by any other
     %% concept that subsumes it.
     Lubs = find_lubs(Dag,Thing,Concept,[]),
+    ?LOG(?DEBUG,"The Lubs are ~p ~n",[Lubs]),
     %%
     %% treating each Lub as a root now find the Glbs
     Glbs = map(fun(Lub) ->
                 find_glbs(Dag,Lub,Concept,[])
         end,Lubs),
+    ?LOG(?DEBUG,"The Glbs are ~p ~n",[Glbs]),
     %%
     %% 
-    create_inferred_facts(Dag,Lubs,Glbs,Concept).
-    
+    create_inferred_facts(Dag,Lubs,Glbs,Concept). 
     
 %%
 %%
 find_lubs(Dag,PossSubsumer,Concept,Lubs) ->
+    ?LOG(?DEBUG,"calling find_lubs with ~p ~p ~p ~n",[PossSubsumer,Concept,Lubs]),
     NewLubs = case PossSubsumer == Concept of
                   true ->
                       Lubs;
@@ -161,14 +168,14 @@ find_lubs(Dag,PossSubsumer,Concept,Lubs) ->
                               Lubs
                       end
               end,
-    Children = in_neighbors(Dag,PossSubsumer),
+    Children = in_neighbours(Dag,PossSubsumer),
     case Children of
         [] ->
-            Lubs;
+            NewLubs;
         _ ->
-            map(fun(Child) ->
+            lists:flatten(map(fun(Child) ->
                         find_lubs(Dag,Child,Concept,NewLubs)
-                end,Children)
+                end,Children))
     end.
 %%
 %%
@@ -178,20 +185,36 @@ find_glbs(_Dag,_PossSubsumee,_Concept,_Glbs) ->
     
 %%
 %%
-add_if_least(_Dag,_Lub,_Lubs) ->
-    ok.
+add_if_least(Dag,Lub,Lubs) ->
+    case any(fun(Con) -> 
+                     subsumes_p(Dag,Con,Lub)
+             end,Lubs) of
+        true -> Lubs;
+        false ->
+            lists:append(Lubs,[Lub])
+    end.
+        
 %%
 %%
 create_inferred_facts(_Dag,_Lubs,_Glbs,_Concept) ->
-    ok.                 
+    [].                 
 %%
 %% compare the definitions of two concepts
 %% this is where all the logical work in classification is
 is_greater(_Dag,_Subsumer,_Subsumee) ->
-    true.
+    ok.
     
-subsumes_p(_Node1,_Node2) ->
-    true.
+   
+%%
+%% subsumes_p merely tests if the two concepts are already in the subsumes
+%% relation, either directly or transitively 
+subsumes_p(Dag,Subsumer,Subsumee) ->
+    case get_path(Dag,Subsumee,Subsumer) of
+        false -> 
+            false;
+        _ ->
+            true
+    end.
 %%
 %%
 store_new_facts(_DagCask, _NewFacts) ->
@@ -230,7 +253,7 @@ topo_sort_test() ->
     dag:add_edge({<<"004">>,<<"002">>,<<"003">>},Dag),
     dag:add_edge({<<"005">>,<<"002">>,<<"004">>},Dag),
     dag:add_edge({<<"005">>,<<"002">>,<<"001">>},Dag),
-    classify(Dag,<<"002">>,fun classify_con/3).
+    classify(Dag,<<"002">>,fun classify_con/4).
                           
     
 -endif.
