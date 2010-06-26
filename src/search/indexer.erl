@@ -252,12 +252,12 @@ poll_for_changes(Pid) ->
                 
 possibly_stop(Pid) ->
     case indexer_server:stop_scheduled(Pid) of 
-	true ->
-	    ?LOG(?INFO, "Stopping~n", []),
+        true ->
+            ?LOG(?INFO, "Stopping~n", []),
             indexer_server:stop(Pid),
-	    done;
-    	_ ->
-	    void
+            done;
+        _ ->
+            void
     end.
 
 index_these_docs(Pid, Docs, InsertOrDelete) ->

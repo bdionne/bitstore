@@ -40,7 +40,7 @@
 -endif.
 %%
 %%
-%% 0. topologically sort concepts with respect to the "isa" relation
+%% 0. topologically sort concepts with respect to their definitions
 %% 1. compute the LUBs for the concept
 %% 2. using the LUBs as roots, compute the GLBs
 %% 
@@ -60,7 +60,7 @@
 %%
 %%
 %% classification in traditional DLs is always with respect to the "isa" relation but
-%% one can imagine other interencing algorithms over different relations
+%% one can imagine other inferencing algorithms over different relations
 %%
 classify(DagCask,Arrow,ClassifyFun) ->
 
@@ -124,8 +124,7 @@ classify(DagCask,Arrow,ClassifyFun) ->
     %% store the new inferecences in the cask
     map(fun(NewFacts) ->
                 store_new_facts(DagCask,NewFacts)
-        end,Inferences),
-    
+        end,Inferences),    
     ok.
 
 classify_con(LookUpTab, Dag, Concept, Arrow) ->
@@ -352,6 +351,16 @@ topo_sort_test() ->
     dag:add_edge({<<"005">>,<<"002">>,<<"004">>},Dag),
     dag:add_edge({<<"005">>,<<"002">>,<<"001">>},Dag),
     classify(Dag,<<"002">>,fun classify_con/4).
+
+simple_lub_test() ->
+    Dag = dag:create_or_open_dag("onty2",true),
+    dag:add_edge({<<"001">>,<<"002">>,<<"003">>},Dag),
+    dag:add_edge({<<"005">>,<<"002">>,<<"004">>},Dag),
+    dag:add_edge({<<"005">>,<<"0013">>,<<"003">>},Dag),
+    dag:add_edge({<<"006">>,<<"002">>,<<"004">>},Dag),
+    dag:add_edge({<<"006">>,<<"0013">>,<<"001">>},Dag),
+    classify(Dag,<<"002">>,fun classify_con/4).
+    
                           
     
 -endif.
