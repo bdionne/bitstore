@@ -28,10 +28,10 @@
 
 -export([classify/3]).
 %%
--import(bitcask, [get/2,put/3,fold/3]).
+-import(bitcask, [get/2,put/3,list_keys/1]).
 -import(digraph, [new/1,add_vertex/1,add_vertex/3,
-                  in_neighbours/2, get_path/3,
-                  add_edge/4, out_degree/2, vertex/2]).
+                  get_path/3,
+                  add_edge/4, edges/2, vertex/2]).
 -import(lists, [map/2, all/2, any/2, reverse/1]).
 %%
 %%
@@ -39,6 +39,12 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 %%
+%%
+%% This classifier computes the classification order with respect to a given relation. Traditionally
+%% this relation is the "isa" relation but one could imagine using others such as "part-of". However
+%% since most semantics are given in terms of set theoretic models where "isa" corresponds to subset
+%% inclusion, it's hard to see these other cases. Nevertheless it's easy enough to make it this general
+%% so why not.
 %%
 %% 0. topologically sort concepts with respect to their definitions
 %% 1. compute the LUBs for the concept
@@ -51,14 +57,6 @@
 %% 4. add any new subsumptions given in the GLBs and LUBs not already accounted for
 %%    by definitions
 %%
-%% Normally this requires marking algorithms to make it efficient, detect diamonds, etc..
-%% it's not clear how to pull this off without writing some temporary bits in the cask. Perhaps
-%% the digraph and digraph_utils modules will be sufficient, as they support labels on vertices.
-%% They can be used to store colors, prim/def bits, visited, and classified bits for recursive 
-%% calls
-%%
-%%
-%%
 %% classification in traditional DLs is always with respect to the "isa" relation but
 %% one can imagine other inferencing algorithms over different relations
 %%
@@ -68,34 +66,40 @@ classify(DagCask,Arrow,ClassifyFun) ->
     %% using the key for the label 
     Dag = new([acyclic]),
 
-    Vids = ets:new(vertex_ids,[set]),    
+    %% create hash to lookup nodes by id
+    Vids = ets:new(vertex_ids,[set]),
+    %%
+    %% store reference to persistent Dag and id hash
     put(<<"cask">>,DagCask),
     put(<<"id_tab">>,Vids),
-    %% first get all vertices created so that forward refences can be resolved 
-    fold(DagCask,
-         fun(K,_Concept,Tab) ->
-                 ?LOG(?DEBUG,"creating vertex for ~p ~n",[K]),
-                 ets:insert(Tab,{K, add_labeled_vertex(Dag,{K,not_classified})}),
-                 Tab
-         end,Vids),
+    put(<<"children">>,Arrow),
 
-    %% now add all the edges. Note that we could get all the relations from each node
-    %% in this single pass, which is more efficient, but correctness comes first so 
-    %% we'll keep it dirt simple
-    fold(DagCask,
-         fun(K,Concept,Tab) ->
-                 case proplists:lookup(Arrow,element(1, binary_to_term(Concept))) of
-                     none ->
-                         %% concept is a root, nothing to add
-                         ok;
-                     {Arrow, Targets} ->
-                         map(fun(Target) ->
-                                     add_edge(Dag,find_vertex(K,Tab),find_vertex(Target,Tab),
-                                              Arrow)
-                             end,Targets)
-                 end,
-                 Tab
-         end,Vids),
+    Keys = list_keys(DagCask),
+    %%
+    %% first get all vertices created so that forward refences can be resolved 
+    map(fun(K) ->
+                ?LOG(?DEBUG,"creating vertex for ~p ~n",[K]),
+                 ets:insert(Vids,{K, add_labeled_vertex(Dag,{K,not_classified})})
+        end,
+        Keys),
+
+    %% now add all the edges. For each node get all the edges
+    %% from it, both "isa" edges and roles.
+    map(fun(K) ->
+                case dag:get_targets(K,DagCask) of
+                    [] ->
+                        ok;
+                    Targets ->
+                        map(fun({Edge,Values}) ->
+                                    map(fun(Value) ->
+                                                add_edge(Dag,
+                                                         find_vertex(K,Vids),
+                                                         find_vertex(Value,Vids),
+                                                         Edge)
+                                        end,Values)
+                            end,Targets)
+                end
+        end, Keys),
 
     SortedConcepts = lists:reverse(digraph_utils:topsort(Dag)),
 
@@ -109,7 +113,7 @@ classify(DagCask,Arrow,ClassifyFun) ->
     %% {subj,pred,obj}
     %%
     Inferences = map(fun(Concept) ->
-                             ClassifyFun(Vids,Dag,Concept,Arrow)
+                             ClassifyFun(Vids,Dag,Concept)
                      end,
                      SortedConcepts),
     ?LOG(?DEBUG,"There are ~p inferences.~n",[Inferences]),
@@ -127,15 +131,47 @@ classify(DagCask,Arrow,ClassifyFun) ->
         end,Inferences),    
     ok.
 
-classify_con(LookUpTab, Dag, Concept, Arrow) ->
+parent_count(Dag,Concept) ->
+    Arrow = get(<<"children">>),
+    lists:foldl(fun(Edge,Acc) ->
+                        {_,_,_,Label} = digraph:edge(Dag,Edge),
+                        case Label == Arrow of
+                            true ->
+                                Acc + 1;
+                            false ->
+                                Acc
+                        end
+                end,0,edges(Dag,Concept)).
+
+children(Dag,Concept) ->
+    Arrow = get(<<"children">>),
+    lists:foldl(fun(Vertex, Acc) ->
+                map(fun(Edge) ->
+                            {_,_,V2,Label} = digraph:edge(Dag,Edge),
+                        case Label == Arrow of
+                            true ->
+                                case V2 == Concept of
+                                    true ->
+                                        [Vertex | Acc];
+                                    false ->
+                                        Acc
+                                end;
+                            false ->
+                                Acc
+                        end end, edges(Dag,Vertex))
+                end,[],digraph:in_neighbours(Dag,Concept)).
+    
+    
+
+classify_con(LookUpTab, Dag, Concept) ->
     print_concept(Dag,Concept),
     Thing = find_vertex(thing(),LookUpTab),
-    print_concept(Dag,Thing),
+    %%print_concept(Dag,Thing),
     %% ***Thing*** subsumes all concepts so we start there
-    case out_degree(Dag,Concept) of
+    case parent_count(Dag,Concept) of
         0 ->
             %% Concept has no parents to add ***Thing***
-            add_edge(Dag,Concept,Thing,Arrow);
+            add_edge(Dag,Concept,Thing,get(<<"children">>));
         _ ->
             ok
     end,
@@ -158,7 +194,7 @@ classify_con(LookUpTab, Dag, Concept, Arrow) ->
 %%
 find_lubs(Dag,PossSubsumer,Concept,Lubs) ->
     ?LOG(?DEBUG,"calling find_lubs with ~p ~p ~p ~n",[PossSubsumer,Concept,Lubs]),
-    print_concept(Dag,PossSubsumer),
+    %%print_concept(Dag,PossSubsumer),
     NewLubs = case PossSubsumer == Concept of
                   true ->
                       ?LOG(?DEBUG,"ok, these guyes are eq ~p ~p ~n",[PossSubsumer,Concept]),
@@ -173,7 +209,7 @@ find_lubs(Dag,PossSubsumer,Concept,Lubs) ->
               end,
     case NewLubs /= Lubs of
         true ->
-            Children = in_neighbours(Dag,PossSubsumer),
+            Children = children(Dag,PossSubsumer),
             case Children of
                 [] ->
                     NewLubs;
@@ -188,7 +224,7 @@ find_lubs(Dag,PossSubsumer,Concept,Lubs) ->
 %%
 find_glbs(Dag,PossSubsumee,Concept,Glbs) ->
     ?LOG(?DEBUG,"calling find_glbs with ~p ~p ~p ~n",[PossSubsumee,Concept,Glbs]),
-    print_concept(Dag,PossSubsumee),
+    %%print_concept(Dag,PossSubsumee),
     NewGlbs = case PossSubsumee == Concept of
                   true ->
                       ?LOG(?DEBUG,"ok, these guyes are eq ~p ~p ~n",[PossSubsumee,Concept]),
@@ -203,7 +239,7 @@ find_glbs(Dag,PossSubsumee,Concept,Glbs) ->
               end,
     case NewGlbs /= Glbs of
         true ->
-            Children = in_neighbours(Dag,PossSubsumee),
+            Children = children(Dag,PossSubsumee),
             case Children of
                 [] ->
                     NewGlbs;
@@ -239,7 +275,7 @@ add_glb(Dag,Glb,Glbs) ->
 %%
 add_con_if_satisfies(Dag,Con,Cons,Fun) ->
     ?LOG(?DEBUG,"checking adding con to list ~p ~p ~n",[Con,Cons]),
-    print_concept(Dag,Con),
+    %%print_concept(Dag,Con),
     ConsToRemove = 
         lists:foldl(fun(Elem, Acc) ->
                             case Fun(Elem) of
@@ -350,7 +386,8 @@ topo_sort_test() ->
     dag:add_edge({<<"004">>,<<"002">>,<<"003">>},Dag),
     dag:add_edge({<<"005">>,<<"002">>,<<"004">>},Dag),
     dag:add_edge({<<"005">>,<<"002">>,<<"001">>},Dag),
-    classify(Dag,<<"002">>,fun classify_con/4).
+    classify(Dag,<<"002">>,fun classify_con/3),
+    bitcask:close(Dag).
 
 simple_lub_test() ->
     Dag = dag:create_or_open_dag("onty2",true),
@@ -359,7 +396,8 @@ simple_lub_test() ->
     dag:add_edge({<<"005">>,<<"0013">>,<<"003">>},Dag),
     dag:add_edge({<<"006">>,<<"002">>,<<"004">>},Dag),
     dag:add_edge({<<"006">>,<<"0013">>,<<"001">>},Dag),
-    classify(Dag,<<"002">>,fun classify_con/4).
+    classify(Dag,<<"002">>,fun classify_con/3),
+    bitcask:close(Dag).
     
                           
     
