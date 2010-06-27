@@ -57,8 +57,7 @@
 %% 4. add any new subsumptions given in the GLBs and LUBs not already accounted for
 %%    by definitions
 %%
-%% classification in traditional DLs is always with respect to the "isa" relation but
-%% one can imagine other inferencing algorithms over different relations
+%% 5. write new inferences back to the persistent store
 %%
 classify(DagCask,Arrow,ClassifyFun) ->
 
@@ -166,7 +165,6 @@ children(Dag,Concept) ->
 classify_con(LookUpTab, Dag, Concept) ->
     print_concept(Dag,Concept),
     Thing = find_vertex(thing(),LookUpTab),
-    %%print_concept(Dag,Thing),
     %% ***Thing*** subsumes all concepts so we start there
     case parent_count(Dag,Concept) of
         0 ->
@@ -194,7 +192,6 @@ classify_con(LookUpTab, Dag, Concept) ->
 %%
 find_lubs(Dag,PossSubsumer,Concept,Lubs) ->
     ?LOG(?DEBUG,"calling find_lubs with ~p ~p ~p ~n",[PossSubsumer,Concept,Lubs]),
-    %%print_concept(Dag,PossSubsumer),
     NewLubs = case PossSubsumer == Concept of
                   true ->
                       ?LOG(?DEBUG,"ok, these guyes are eq ~p ~p ~n",[PossSubsumer,Concept]),
@@ -224,7 +221,6 @@ find_lubs(Dag,PossSubsumer,Concept,Lubs) ->
 %%
 find_glbs(Dag,PossSubsumee,Concept,Glbs) ->
     ?LOG(?DEBUG,"calling find_glbs with ~p ~p ~p ~n",[PossSubsumee,Concept,Glbs]),
-    %%print_concept(Dag,PossSubsumee),
     NewGlbs = case PossSubsumee == Concept of
                   true ->
                       ?LOG(?DEBUG,"ok, these guyes are eq ~p ~p ~n",[PossSubsumee,Concept]),
@@ -275,7 +271,6 @@ add_glb(Dag,Glb,Glbs) ->
 %%
 add_con_if_satisfies(Dag,Con,Cons,Fun) ->
     ?LOG(?DEBUG,"checking adding con to list ~p ~p ~n",[Con,Cons]),
-    %%print_concept(Dag,Con),
     ConsToRemove = 
         lists:foldl(fun(Elem, Acc) ->
                             case Fun(Elem) of
