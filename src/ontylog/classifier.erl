@@ -142,11 +142,30 @@ parent_count(Dag,Concept) ->
                         end
                 end,0,edges(Dag,Concept)).
 
+is_parent(Dag,Concept,Parent) ->
+    Arrow = get(<<"children">>),
+    any(fun(Edge) ->
+                        {_,_,V2,Label} = digraph:edge(Dag,Edge),
+                        case Label == Arrow of
+                            true ->
+                                case V2 == Parent of
+                                    true ->
+                                        true;
+                                    false ->
+                                        is_parent(Dag,V2,Parent)
+                                end;
+                            false ->
+                                false
+                        end
+        end,edges(Dag,Concept)).
+
 children(Dag,Concept) ->
     Arrow = get(<<"children">>),
     lists:foldl(fun(Vertex, Acc) ->
                 map(fun(Edge) ->
                             {_,_,V2,Label} = digraph:edge(Dag,Edge),
+                            ?LOG(?DEBUG,"The label is ~p and the Node is ~p ~n",
+                                 [Label, label(Dag,V2)]),
                         case Label == Arrow of
                             true ->
                                 case V2 == Concept of
@@ -177,13 +196,17 @@ classify_con(LookUpTab, Dag, Concept) ->
     %% that subsume the given concept and are subsumed by any other
     %% concept that subsumes it.
     Lubs = find_lubs(Dag,Thing,Concept,[]),
-    ?LOG(?DEBUG,"The Lubs are ~p ~n",[Lubs]),
+    ?LOG(?DEBUG,"The Lubs are ~p ~n",[map(fun(Lub) ->
+                                                  label(Dag,Lub)
+                                                      end,Lubs)]),
     %%
     %% treating each Lub as a root now find the Glbs
     Glbs = sl_flatten(map(fun(Lub) ->
                 find_glbs(Dag,Lub,Concept,[])
         end,Lubs)),
-    ?LOG(?DEBUG,"The Glbs are ~p ~n",[Glbs]),
+    ?LOG(?DEBUG,"The Glbs are ~p ~n",[map(fun(Glb) ->
+                                                  label(Dag,Glb)
+                                                      end,Glbs)]),
     %%
     %% 
     create_inferred_facts(Dag,Lubs,Glbs,Concept). 
@@ -191,7 +214,7 @@ classify_con(LookUpTab, Dag, Concept) ->
 %%
 %%
 find_lubs(Dag,PossSubsumer,Concept,Lubs) ->
-    ?LOG(?DEBUG,"calling find_lubs with ~p ~p ~p ~n",[PossSubsumer,Concept,Lubs]),
+    ?LOG(?DEBUG,"calling find_lubs with ~p ~p ~p ~n",[label(Dag,PossSubsumer),label(Dag,Concept),Lubs]),
     NewLubs = case PossSubsumer == Concept of
                   true ->
                       ?LOG(?DEBUG,"ok, these guyes are eq ~p ~p ~n",[PossSubsumer,Concept]),
@@ -207,6 +230,8 @@ find_lubs(Dag,PossSubsumer,Concept,Lubs) ->
     case NewLubs /= Lubs of
         true ->
             Children = children(Dag,PossSubsumer),
+            ?LOG(?DEBUG,"the children of ~p are ~p ~n",[label(Dag,PossSubsumer),map(fun(Child) ->
+                                                                                            label(Dag,Child) end,Children)]),
             case Children of
                 [] ->
                     NewLubs;
@@ -220,7 +245,7 @@ find_lubs(Dag,PossSubsumer,Concept,Lubs) ->
 %%
 %%
 find_glbs(Dag,PossSubsumee,Concept,Glbs) ->
-    ?LOG(?DEBUG,"calling find_glbs with ~p ~p ~p ~n",[PossSubsumee,Concept,Glbs]),
+    ?LOG(?DEBUG,"calling find_glbs with ~p ~p ~p ~n",[label(Dag,PossSubsumee),label(Dag,Concept),Glbs]),
     NewGlbs = case PossSubsumee == Concept of
                   true ->
                       ?LOG(?DEBUG,"ok, these guyes are eq ~p ~p ~n",[PossSubsumee,Concept]),
@@ -270,7 +295,7 @@ add_glb(Dag,Glb,Glbs) ->
 %%
 %%
 add_con_if_satisfies(Dag,Con,Cons,Fun) ->
-    ?LOG(?DEBUG,"checking adding con to list ~p ~p ~n",[Con,Cons]),
+    ?LOG(?DEBUG,"checking adding con to list ~p ~p ~n",[label(Dag,Con),Cons]),
     ConsToRemove = 
         lists:foldl(fun(Elem, Acc) ->
                             case Fun(Elem) of
@@ -279,7 +304,7 @@ add_con_if_satisfies(Dag,Con,Cons,Fun) ->
                             end
                     end,[],Cons),
     NewCons = lists:subtract(Cons,ConsToRemove),
-    ?LOG(?DEBUG,"ok, adding concept ~p ~n",[Con]),            
+    ?LOG(?DEBUG,"ok, adding concept ~p ~n",[label(Dag,Con)]),            
     lists:append(NewCons,[Con]).        
 %%
 %%
@@ -309,11 +334,12 @@ is_greater(Dag,Subsumer,Subsumee) ->
 %% subsumes_p merely tests if the two concepts are already in the subsumes
 %% relation, either directly or transitively 
 subsumes_p(Dag,Subsumer,Subsumee) ->
-    case get_path(Dag,Subsumee,Subsumer) of
+    %% This needs to only look for path thru "isa" links
+    case is_parent(Dag,Subsumee,Subsumer) of
         false -> 
             false;
         _ ->
-            ?LOG(?DEBUG,"subsumes_p found a path ~p ~p ~n",[Subsumee,Subsumer]),
+            ?LOG(?DEBUG,"subsumes_p found a path ~p ~p ~n",[label(Dag,Subsumee),label(Dag,Subsumer)]),
             true
     end.
 %%
@@ -360,7 +386,10 @@ thing() ->
 %%
 %%
 print_concept(Dag, Concept) ->
-    ?LOG(?DEBUG,"concept ~p ~n",[element(2,vertex(Dag, Concept))]).
+    ?LOG(?DEBUG,"concept ~p ~n",[label(Dag, Concept)]).
+
+label(Dag, Concept) ->
+    element(2,vertex(Dag, Concept)).
 %%
 %%
 sl_flatten([]) -> [];
