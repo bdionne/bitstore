@@ -30,8 +30,8 @@
 %%
 -import(bitcask, [get/2,put/3,list_keys/1]).
 -import(digraph, [new/1,add_vertex/1,add_vertex/3,
-                  get_path/3,
-                  add_edge/4, edges/2, vertex/2]).
+                  get_path/3, edges/2,
+                  add_edge/4, out_neighbours/2, vertex/2]).
 -import(lists, [map/2, all/2, any/2, reverse/1]).
 %%
 %%
@@ -91,6 +91,8 @@ classify(DagCask,Arrow,ClassifyFun) ->
                     Targets ->
                         map(fun({Edge,Values}) ->
                                     map(fun(Value) ->
+                                                ?LOG(?DEBUG,"adding edge ~p ~p ~p ~n",
+                                                     [K,Edge,Value]),
                                                 add_edge(Dag,
                                                          find_vertex(K,Vids),
                                                          find_vertex(Value,Vids),
@@ -132,11 +134,18 @@ classify(DagCask,Arrow,ClassifyFun) ->
 
 parent_count(Dag,Concept) ->
     Arrow = get(<<"children">>),
+    %% ?LOG(?DEBUG,"This concept ~p has ~p edges ~n",
+    %%      [label(Dag,Concept),length(edges(Dag,Concept))]),
     lists:foldl(fun(Edge,Acc) ->
-                        {_,_,_,Label} = digraph:edge(Dag,Edge),
+                        {_,_,V2,Label} = digraph:edge(Dag,Edge),
                         case Label == Arrow of
                             true ->
-                                Acc + 1;
+                                case V2 == Concept of
+                                    true ->
+                                        Acc;
+                                    false ->
+                                        Acc + 1
+                                end;
                             false ->
                                 Acc
                         end
@@ -148,11 +157,16 @@ is_parent(Dag,Concept,Parent) ->
                         {_,_,V2,Label} = digraph:edge(Dag,Edge),
                         case Label == Arrow of
                             true ->
-                                case V2 == Parent of
+                                case V2 == Concept of
                                     true ->
-                                        true;
+                                        false;
                                     false ->
-                                        is_parent(Dag,V2,Parent)
+                                        case V2 == Parent of
+                                            true ->
+                                                true;
+                                            false ->
+                                                is_parent(Dag,V2,Parent)
+                                        end
                                 end;
                             false ->
                                 false
@@ -162,21 +176,31 @@ is_parent(Dag,Concept,Parent) ->
 children(Dag,Concept) ->
     Arrow = get(<<"children">>),
     lists:foldl(fun(Vertex, Acc) ->
-                map(fun(Edge) ->
-                            {_,_,V2,Label} = digraph:edge(Dag,Edge),
-                            ?LOG(?DEBUG,"The label is ~p and the Node is ~p ~n",
-                                 [Label, label(Dag,V2)]),
-                        case Label == Arrow of
+                        %% ?LOG(?DEBUG,"checking vertex ~p ~n",
+                        %%      [label(Dag,Vertex)]),
+                        case any(fun(Edge) ->
+                                         {_,_,V2,Label} = digraph:edge(Dag,Edge),
+                                         %% ?LOG(?DEBUG,"The label is ~p and the Node is ~p ~n",
+                                         %%      [Label, label(Dag,V2)]),
+                                         case Label == Arrow of
+                                             true ->
+                                                 case V2 == Concept of
+                                                     true ->
+                                                         true;
+                                                     %% ?LOG(?DEBUG,"true true ~p ~p ~p ~p ~n",
+                                                     %%      [Label,Arrow,V2,Concept]),
+                                                     %% Acc ++ [Vertex];
+                                                     false ->
+                                                         false
+                                                 end;
+                                             false ->
+                                                 false
+                                         end end, digraph:edges(Dag,Vertex)) of
                             true ->
-                                case V2 == Concept of
-                                    true ->
-                                        [Vertex | Acc];
-                                    false ->
-                                        Acc
-                                end;
+                                Acc ++ [Vertex];
                             false ->
                                 Acc
-                        end end, edges(Dag,Vertex))
+                        end
                 end,[],digraph:in_neighbours(Dag,Concept)).
     
     
@@ -188,50 +212,56 @@ classify_con(LookUpTab, Dag, Concept) ->
     case parent_count(Dag,Concept) of
         0 ->
             %% Concept has no parents to add ***Thing***
+            ?LOG(?DEBUG,"adding Thing as parent ~n",[]),
             add_edge(Dag,Concept,Thing,get(<<"children">>));
-        _ ->
+        Count ->
+            ?LOG(?DEBUG,"This concept ~p has ~p parents ~n",
+                 [label(Dag,Concept),Count]),
             ok
     end,
     %% first compute the least upper bounds, those concepts
     %% that subsume the given concept and are subsumed by any other
     %% concept that subsumes it.
     Lubs = find_lubs(Dag,Thing,Concept,[]),
-    ?LOG(?DEBUG,"The Lubs are ~p ~n",[map(fun(Lub) ->
-                                                  label(Dag,Lub)
-                                                      end,Lubs)]),
+    ?LOG(?DEBUG,"The Lubs are ~p ~n",[labels(Dag,Lubs)]),
+    FilteredLubs = lists:foldl(fun(E,Acc) ->
+                                      add_lub(Dag,E,Acc)
+                              end,[],Lubs),
+    ?LOG(?DEBUG,"The Filtered Lubs are ~p ~n",[labels(Dag,FilteredLubs)]),
+                                      
     %%
     %% treating each Lub as a root now find the Glbs
     Glbs = sl_flatten(map(fun(Lub) ->
                 find_glbs(Dag,Lub,Concept,[])
-        end,Lubs)),
-    ?LOG(?DEBUG,"The Glbs are ~p ~n",[map(fun(Glb) ->
-                                                  label(Dag,Glb)
-                                                      end,Glbs)]),
+        end,FilteredLubs)),
+    ?LOG(?DEBUG,"The Glbs are ~p ~n",[labels(Dag,Glbs)]),
     %%
     %% 
-    create_inferred_facts(Dag,Lubs,Glbs,Concept). 
+    create_inferred_facts(Dag,FilteredLubs,Glbs,Concept). 
     
 %%
 %%
 find_lubs(Dag,PossSubsumer,Concept,Lubs) ->
-    ?LOG(?DEBUG,"calling find_lubs with ~p ~p ~p ~n",[label(Dag,PossSubsumer),label(Dag,Concept),Lubs]),
+    ?LOG(?DEBUG,"calling find_lubs with ~p ~p ~p ~n",[label(Dag,PossSubsumer),label(Dag,Concept),labels(Dag,Lubs)]),
     NewLubs = case PossSubsumer == Concept of
                   true ->
-                      ?LOG(?DEBUG,"ok, these guyes are eq ~p ~p ~n",[PossSubsumer,Concept]),
+                      ?LOG(?DEBUG,"ok, these guyes are eq ~p ~p ~n",[label(Dag,PossSubsumer),label(Dag,Concept)]),
                       Lubs;
                   _ ->
-                      case is_greater(Dag,PossSubsumer,Concept) of
+                      case is_parent(Dag,Concept,PossSubsumer) orelse
+                          is_greater(Dag,PossSubsumer,Concept) of
                           true ->
                               add_lub(Dag,PossSubsumer,Lubs);
-                          _ ->
+                          false ->
                               Lubs
                       end
               end,
     case NewLubs /= Lubs of
         true ->
             Children = children(Dag,PossSubsumer),
-            ?LOG(?DEBUG,"the children of ~p are ~p ~n",[label(Dag,PossSubsumer),map(fun(Child) ->
-                                                                                            label(Dag,Child) end,Children)]),
+            %% ?LOG(?DEBUG,"the number of children is ~p ~p ~n",
+            %%      [length(Children),Children]),
+            ?LOG(?DEBUG,"the children of ~p are ~p ~n",[label(Dag,PossSubsumer),labels(Dag,Children)]),
             case Children of
                 [] ->
                     NewLubs;
@@ -245,13 +275,14 @@ find_lubs(Dag,PossSubsumer,Concept,Lubs) ->
 %%
 %%
 find_glbs(Dag,PossSubsumee,Concept,Glbs) ->
-    ?LOG(?DEBUG,"calling find_glbs with ~p ~p ~p ~n",[label(Dag,PossSubsumee),label(Dag,Concept),Glbs]),
+    ?LOG(?DEBUG,"calling find_glbs with ~p ~p ~p ~n",[label(Dag,PossSubsumee),label(Dag,Concept),labels(Dag,Glbs)]),
     NewGlbs = case PossSubsumee == Concept of
                   true ->
-                      ?LOG(?DEBUG,"ok, these guyes are eq ~p ~p ~n",[PossSubsumee,Concept]),
+                      ?LOG(?DEBUG,"ok, these guyes are eq ~p ~p ~n",[label(Dag,PossSubsumee),label(Dag,Concept)]),
                       Glbs;
                   _ ->
-                      case is_greater(Dag,Concept,PossSubsumee) of
+                      case is_greater(Dag,Concept,PossSubsumee) orelse
+                          is_parent(Dag,PossSubsumee,Concept) of
                           true ->
                               add_glb(Dag,PossSubsumee,Glbs);
                           _ -> 
@@ -259,8 +290,10 @@ find_glbs(Dag,PossSubsumee,Concept,Glbs) ->
                       end
               end,
     case NewGlbs /= Glbs of
-        true ->
+        false ->
             Children = children(Dag,PossSubsumee),
+            ?LOG(?DEBUG,"the childrens are ~p ~n",
+                 [labels(Dag,Children)]),
             case Children of
                 [] ->
                     NewGlbs;
@@ -269,33 +302,43 @@ find_glbs(Dag,PossSubsumee,Concept,Glbs) ->
                                 find_glbs(Dag,Child,Concept,NewGlbs)
                         end,Children))
             end;
-        false -> 
+        true -> 
             NewGlbs
     end.    
 %%
 %%
 add_lub(Dag,Lub,Lubs) ->
-    add_con_if_satisfies(
-      Dag,
-      Lub,
-      Lubs,
-      fun(Elem) ->
-              subsumes_p(Dag,Elem,Lub)
-      end).
+    case any(fun(L) -> subsumes_p(Dag,Lub,L) end,Lubs) of
+        true ->
+            Lubs;
+        false ->
+            add_con_if_satisfies(
+              Dag,
+              Lub,
+              Lubs,
+              fun(Elem) ->
+                      subsumes_p(Dag,Elem,Lub)
+              end)
+    end.
 %%
 %%
 add_glb(Dag,Glb,Glbs) ->
-    add_con_if_satisfies(
-      Dag,
-      Glb,
-      Glbs,
-      fun(Elem) ->
-              subsumes_p(Dag,Glb,Elem)
-      end).
+    case any(fun(G) -> subsumes_p(Dag,G,Glb) end,Glbs) of
+        true ->
+            Glbs;
+        false ->
+            add_con_if_satisfies(
+              Dag,
+              Glb,
+              Glbs,
+              fun(Elem) ->
+                      subsumes_p(Dag,Glb,Elem)
+              end)
+    end.
 %%
 %%
 add_con_if_satisfies(Dag,Con,Cons,Fun) ->
-    ?LOG(?DEBUG,"checking adding con to list ~p ~p ~n",[label(Dag,Con),Cons]),
+    ?LOG(?DEBUG,"checking adding con to list ~p ~p ~n",[label(Dag,Con),labels(Dag,Cons)]),
     ConsToRemove = 
         lists:foldl(fun(Elem, Acc) ->
                             case Fun(Elem) of
@@ -304,7 +347,7 @@ add_con_if_satisfies(Dag,Con,Cons,Fun) ->
                             end
                     end,[],Cons),
     NewCons = lists:subtract(Cons,ConsToRemove),
-    ?LOG(?DEBUG,"ok, adding concept ~p ~n",[label(Dag,Con)]),            
+    ?LOG(?DEBUG,"ok, adding concept ~p  to ~p ~n",[label(Dag,Con),labels(Dag,NewCons)]),            
     lists:append(NewCons,[Con]).        
 %%
 %%
@@ -323,11 +366,21 @@ is_greater(Dag,Subsumer,Subsumee) ->
     ?LOG(?DEBUG,"the definition of  ~p is  ~p ~n",[SubKey,SubDef]),
     %% all works even if SupDef is empty, as it should given all is vacuously true
     %% it is a thing of beauty to be able to state something so succintly
-    all(fun(SupRel) ->
-                any(fun(SubRel) ->
-                            rel_subsumes_p(Dag,SupRel,SubRel)
-                    end,SubDef)
-        end,SupDef).
+    case SupDef == [] of
+        true ->
+            false;
+        false ->
+            case SubDef == [] of
+                true ->
+                    false;
+                false ->
+                    all(fun(SupRel) ->
+                                any(fun(SubRel) ->
+                                            rel_subsumes_p(Dag,SupRel,SubRel)
+                                    end,SubDef)
+                        end,SupDef)
+            end
+    end.
     
    
 %%
@@ -335,12 +388,17 @@ is_greater(Dag,Subsumer,Subsumee) ->
 %% relation, either directly or transitively 
 subsumes_p(Dag,Subsumer,Subsumee) ->
     %% This needs to only look for path thru "isa" links
-    case is_parent(Dag,Subsumee,Subsumer) of
-        false -> 
-            false;
-        _ ->
-            ?LOG(?DEBUG,"subsumes_p found a path ~p ~p ~n",[label(Dag,Subsumee),label(Dag,Subsumer)]),
-            true
+    case Subsumer == Subsumee of
+        true ->
+            true;
+        false ->
+            case is_parent(Dag,Subsumee,Subsumer) of
+                false -> 
+                    false;
+                _ ->
+                    ?LOG(?DEBUG,"subsumes_p found a path ~p ~p ~n",[label(Dag,Subsumee),label(Dag,Subsumer)]),
+                    true
+            end
     end.
 %%
 %%
@@ -388,6 +446,11 @@ thing() ->
 print_concept(Dag, Concept) ->
     ?LOG(?DEBUG,"concept ~p ~n",[label(Dag, Concept)]).
 
+labels(Dag, Cons) ->
+    map(fun(Con) ->
+                label(Dag,Con)
+        end,Cons).
+
 label(Dag, Concept) ->
     element(2,vertex(Dag, Concept)).
 %%
@@ -395,7 +458,12 @@ label(Dag, Concept) ->
 sl_flatten([]) -> [];
 sl_flatten([[]]) -> [];
 sl_flatten([H | T]) ->
-    [hd(H) | sl_flatten(T)].
+    case H == [] of
+        true ->
+            sl_flatten(T);
+        false ->
+            [hd(H) | sl_flatten(T)]
+    end.
 
 
 %% 
