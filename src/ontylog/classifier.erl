@@ -122,7 +122,12 @@ classify(DagCask,Arrow,ClassifyFun) ->
     %%
     %% store classified concepts in the cask if needed
     map(fun(Concept) ->
-                store_new_facts(Dag,Concept)
+                case is_classified_modified(Dag,Concept) of
+                    true ->
+                        store_new_facts(Dag,Concept);
+                    _ ->
+                        ok
+                end
         end,SortedConcepts),    
     ok.
 
@@ -396,6 +401,7 @@ create_inferred_facts(Dag,Lubs,Glbs,Concept) ->
                                     map(fun(Con) ->
                                                 remove_parent(Dag,Glb,Con)
                                         end,ConsToRemove),
+                                    add_edge(Dag,Glb,Concept,get(<<"children">>)),
                                     true
                             end end,Glbs),                                    
     case any(fun(Elem) ->
@@ -486,12 +492,21 @@ rel_subsumes_p(Dag,SupRel,SubRel) ->
     end.
 %%
 %%
-remove_parent(_Dag,_Con,_Parent) ->
-    ok.
+remove_parent(Dag,Con,Parent) ->
+    digraph:delete_path(Dag,Con,Parent).
+   
 %%
 %%
 store_new_facts(Dag, Concept) ->
-    ?LOG(?DEBUG,"The concept has been classified ~p ~n",[label(Dag,Concept)]),    
+    ?LOG(?DEBUG,"This concept's status ~p ~n",[label(Dag,Concept)]),
+    DagCask = get(<<"cask">>),
+    map(fun(Edge) ->
+                {_,Source,Target,Arrow} = digraph:edge(Dag,Edge),
+                SrcKey = extract_key(Dag,Source),
+                TarKey = extract_key(Dag,Target),
+                ?LOG(?DEBUG,"Adding edge to cask: {~p ~p ~p} ~n",[SrcKey,Arrow,TarKey]),
+                dag:add_edge({SrcKey,Arrow,TarKey},DagCask)
+        end,digraph:edges(Dag,Concept)),    
     ok.
 %%
 %% creates a new vertex with given label
@@ -507,6 +522,10 @@ is_classified(Dag, Concept) ->
     Label = element(2,label(Dag, Concept)),
     %%?LOG(?DEBUG,"checking is classified for ~p ~n",[Label]),
     (Label == classified) orelse (Label == classified_modified).
+%%
+%%
+is_classified_modified(Dag, Concept) ->
+    element(2,label(Dag, Concept)) == classified_modified.
 %%
 %%
 extract_key(Dag,Concept) ->
