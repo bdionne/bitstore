@@ -152,9 +152,7 @@ get_roots(Arrow,Dag) ->
 %%
 path_exists({_Source,_Arrow,_Target},_Dag) ->
     ok.
-    
-
-
+%%
 %% internal private functions
 store_node(NodeId,Node,Dag) ->
     put(Dag,NodeId,term_to_binary(Node)).
@@ -251,7 +249,7 @@ get_edge_sources_test() ->
     ?assert(length(get_edge_sources({<<"003">>,<<"002">>},Dag)) == 1),
     [<<"001">>] = get_edge_sources({<<"003">>,<<"002">>},Dag),
     close_dag(Dag).
-%
+%%
 get_targets_test() ->
     Dag = create_or_open_dag("onty",true),
     add_edge({<<"001">>,<<"002">>,<<"003">>},Dag),
@@ -283,6 +281,5 @@ get_multiple_roots_test() ->
     ?assert(lists:member(<<"003">>,Roots)),
     ?assert(lists:member(<<"005">>,Roots)),
     close_dag(Dag).
-    
 %%
 -endif.
