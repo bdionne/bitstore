@@ -133,7 +133,7 @@ classify(DagCask,Arrow,ClassifyFun) ->
 
 parent_count(Dag,Concept) ->
     Arrow = get(<<"children">>),
-    %% ?LOG(?DEBUG,"This concept ~p has ~p edges ~n",
+    %% ?LOG(?DEBUG,"This concept ~p has ~p edges ~n",1
     %%      [label(Dag,Concept),length(edges(Dag,Concept))]),
     lists:foldl(fun(Edge,Acc) ->
                         {_,_,V2,Label} = digraph:edge(Dag,Edge),
@@ -382,8 +382,7 @@ create_inferred_facts(Dag,Lubs,Glbs,Concept) ->
                             case is_parent(Dag,Glb,Concept) of
                                 true ->
                                     false;
-                                _ -> 
-                                    
+                                _ ->                                    
                                     ConsToRemove =
                                         lists:foldl(fun(Edge,Acc) ->
                                                             {_,_,V2,Label} = digraph:edge(Dag,Edge),

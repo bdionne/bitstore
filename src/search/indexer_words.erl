@@ -17,7 +17,7 @@
 %%   functions in lib_indexer
 %%     until we have evaluated indexer:starting
 %%     this is because we need to open the trigram tables and convert
-%%     filenames to absolute incides
+%%     filenames to absolute indices
 
 
 do_indexing(_, [], _) ->

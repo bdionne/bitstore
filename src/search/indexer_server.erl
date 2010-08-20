@@ -51,7 +51,7 @@ stop_scheduled(Pid) ->
     gen_server:call(Pid, scheduled_stop, infinity).
 
 is_running(Pid) ->
-    gen_server:call(Pid, is_running).
+    gen_server:call(Pid, is_running, infinity).
 
 start(Pid) ->
     gen_server:call(Pid, start, infinity).
