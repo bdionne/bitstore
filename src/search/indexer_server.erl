@@ -24,7 +24,7 @@
 	 checkpoint/1,
          checkpoint/3,
 	 schedule_stop/1,
-	 search/2,
+	 %%search/2,
          search/3,
          write_index/3,
          write_bulk_indices/2,
@@ -77,7 +77,7 @@ checkpoint(Pid, changes, LastSeq) ->
 
 ets_table(Pid)  -> gen_server:call(Pid, ets_table).
     
-search(Pid, Str)  -> gen_server:call(Pid, {search, Str}, infinity).
+%%search(Pid, Str)  -> gen_server:call(Pid, {search, Str}, infinity).
 
 search(Pid, Str, Field)  -> gen_server:call(Pid, {search, Str, Field}, infinity).
 

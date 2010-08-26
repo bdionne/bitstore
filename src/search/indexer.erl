@@ -54,25 +54,21 @@ db_updated(DbName) ->
     gen_server:call(?MODULE,{db_updated, DbName}, infinity).     
 
 start_indexing(DbName) ->
-    gen_server:call(?MODULE,{start, DbName}, infinity).    
+    gen_server:call(?MODULE,{start, DbName}, infinity).
+
+check_docs(Docs) ->
+    case Docs of
+        none ->
+             [];
+        tooMany -> [];
+        _ -> Docs
+    end.    
 
 search(DbName, Str) ->
-    Docs = gen_server:call(?MODULE, {search, DbName, Str}, infinity),
-    case Docs of
-        none ->
-             [];
-        tooMany -> [];
-        _ -> Docs
-    end.
+    check_docs(gen_server:call(?MODULE, {search, DbName, Str}, infinity)).    
 
 search(DbName, Str, Field) ->
-    Docs = gen_server:call(?MODULE, {search, DbName, Str, Field}, infinity),
-    case Docs of
-        none ->
-             [];
-        tooMany -> [];
-        _ -> Docs
-    end.
+    check_docs(gen_server:call(?MODULE, {search, DbName, Str, Field}, infinity)).
 
 stop_indexing(DbName) ->
     ?LOG(?INFO, "Scheduling a stop~n", []),
@@ -108,28 +104,15 @@ handle_call({start, DbName}, _From, State) ->
             {reply, ok, State}
     end;
 
+
 handle_call({search, DbName, Str}, _From, State) ->
     #state{dbs=Tab} = State,
-    Pid = case ets:lookup(Tab,DbName) of
-              [] ->
-                  ?LOG(?DEBUG, "Indexer doesn't exist need to create new ~p ~n",[DbName]),
-                  {ok, NewPid} = gen_server:start_link(indexer_server, [DbName], []),
-                  ets:insert(Tab,{DbName,NewPid}),
-                  NewPid;
-              [{DbName,Pid2}] -> Pid2
-          end,
-    {reply, indexer_server:search(Pid, Str), State};
+    Pid = find_or_create_idx_server(Tab, DbName),
+    {reply, gen_server:call(Pid, {search, Str}, infinity), State};
 
 handle_call({search, DbName, Str, Field}, _From, State) ->
     #state{dbs=Tab} = State,
-    Pid = case ets:lookup(Tab,DbName) of
-              [] ->
-                  ?LOG(?DEBUG, "Indexer doesn't exist need to create new ~p ~n",[DbName]),
-                  {ok, NewPid} = gen_server:start_link(indexer_server, [DbName], []),
-                  ets:insert(Tab,{DbName,NewPid}),
-                  NewPid;
-              [{DbName,Pid2}] -> Pid2
-          end,
+    Pid = find_or_create_idx_server(Tab, DbName),
     {reply, indexer_server:search(Pid, Str, Field), State};
 
 handle_call({stop, DbName}, _From, State) ->
@@ -291,5 +274,19 @@ handle_result(Pid, Key, Vals, Acc, InsertOrDelete) ->
             indexer_server:delete_index(Pid, Key, Vals)
     end,    
     Acc + 1.
+%%
+%% private helpers
+%%
+find_or_create_idx_server(EtsTab, DbName) ->
+    case ets:lookup(EtsTab,DbName) of
+	[] ->
+	    ?LOG(?DEBUG, "Indexer doesn't exist need to create new ~p ~n",[DbName]),
+	    {ok, NewPid} = gen_server:start_link(indexer_server, [DbName], []),
+	    ets:insert(EtsTab,{DbName,NewPid}),
+	    NewPid;
+	[{DbName,Pid2}] -> Pid2
+    end.
+    
+
 
 
