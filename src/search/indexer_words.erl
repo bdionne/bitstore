@@ -34,8 +34,8 @@ do_indexing(Pid, Doc, EtsTrigrams) ->
                   <<"_rev">> -> ok;
                   _ -> 
                       Str = binary_to_list(
-                            term_to_binary(
-                              element(2, Elm))),
+			      term_to_binary(
+				element(2, Elm))),
                       indexer_misc:foreach_word_in_string(
                         Str, 
                         fun(W, N) -> 

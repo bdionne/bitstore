@@ -257,7 +257,7 @@ index_these_docs(Pid, Docs) ->
                  [{Key, Val} | Acc] end,
     MrList = indexer_misc:mapreduce(F1, F2, [], Docs),
     MrListS = lists:sort(fun(A, B) ->
-                                 element(1,A) < element(1, B) end,
+				 element(1,A) < element(1, B) end,
                          MrList),
     Tbeg = now(),
     indexer_server:write_bulk_indices(Pid, MrListS),
