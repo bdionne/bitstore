@@ -234,6 +234,7 @@ store_chkp(DocId, B, Db) ->
     store_in_cask(Db,DocId,NewDoc).
 
 store_in_cask(Db,Key,Val) ->
+    ?LOG(?DEBUG,"trying to store: ~p ~p in ~p ~n",[Key, Val, Db]),
     bitcask:put(Db,Key,term_to_binary(Val)).    
 
 write_last_seq(Db, LastSeq) ->   

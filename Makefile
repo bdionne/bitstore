@@ -12,7 +12,6 @@ MODS = src/couchdb/couch_store\
        src/search/indexer_porter\
        src/search/indexer_words\
        src/search/indexer_couchdb_crawler\
-       src/search/indexer_server\
        src/search/indexer\
        src/search/indexer_misc\
        src/search/indexer_trigrams
