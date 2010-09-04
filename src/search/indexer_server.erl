@@ -16,16 +16,13 @@
 %% but still retains the original ideas from the text book
 -author('Bob Dionne').
 
--export([next_docs/1,
-         total_docs/1,
-         db_name/1,
+-export([worker/2,
+	 poll_for_changes/1,
          get_changes/1,
 	 ets_table/1, 
 	 checkpoint/1,
          checkpoint/3,
 	 schedule_stop/1,
-	 %%search/2,
-         search/3,
          write_index/3,
          write_bulk_indices/2,
          delete_index/3,
@@ -59,14 +56,8 @@ start(Pid) ->
 stop(Pid) ->
      gen_server:cast(Pid, stop).
 
-next_docs(Pid) -> 
-    gen_server:call(Pid, next_docs, infinity).
-
-total_docs(Pid) ->
-    gen_server:call(Pid, total_docs).
-
-db_name(Pid) ->
-    gen_server:call(Pid, db_name).
+%% db_name(Pid) ->
+%%     gen_server:call(Pid, db_name).
 
 get_changes(Pid) ->
      gen_server:call(Pid, changes, infinity).
@@ -77,10 +68,6 @@ checkpoint(Pid, changes, LastSeq) ->
 
 ets_table(Pid)  -> gen_server:call(Pid, ets_table).
     
-%%search(Pid, Str)  -> gen_server:call(Pid, {search, Str}, infinity).
-
-search(Pid, Str, Field)  -> gen_server:call(Pid, {search, Str, Field}, infinity).
-
 write_index(Pid, Key, Vals) ->
     gen_server:call(Pid, {write, Key, Vals}).
 
@@ -105,14 +92,13 @@ delete_db_index(DbName) ->
 
 init(DbName) ->
     Tab = indexer_trigrams:open(),
-    DbIndexName = list_to_binary(DbName ++ "-idx"),
+    DbIndexName = binary_to_list(list_to_binary(DbName ++ "-idx")),
    
-    Db = case indexer_couchdb_crawler:index_exists(binary_to_list(DbIndexName)) of
-             true -> indexer_couchdb_crawler:open_index(binary_to_list(DbIndexName));
+    Db = case indexer_couchdb_crawler:index_exists(DbIndexName) of
+             true -> indexer_couchdb_crawler:open_index(DbIndexName);
              false ->
-                 ?LOG(?DEBUG,"Starting new crawler with ~p ~p ~n",[list_to_binary(DbName), binary_to_list(DbIndexName)]),
-                 [Db1, Cont] = indexer_couchdb_crawler:start(list_to_binary(DbName),[{reset, binary_to_list(DbIndexName)}]),
-                 %%Check = {DbIndexName, Cont},
+                 ?LOG(?DEBUG,"Starting new crawler with ~p ~p ~n",[list_to_binary(DbName), DbIndexName]),
+                 [Db1, Cont] = indexer_couchdb_crawler:start(list_to_binary(DbName),[{reset, DbIndexName}]),
                  ?LOG(?INFO, "creating checkpoint:~p~n", [Cont]),
                  indexer_checkpoint:init(Db1, Cont),
                  Db1
@@ -146,8 +132,8 @@ handle_call(changes, _From, S) ->
     {reply, indexer_couchdb_crawler:get_changes_since(S#env.dbnam, LastSeq), S};
 handle_call(total_docs, _From, S) ->
     {reply, indexer_couchdb_crawler:read_doc_count(S#env.idx), S};
-handle_call(db_name, _From, S) ->
-    {reply, S#env.dbnam, S};
+%% handle_call(db_name, _From, S) ->
+%%     {reply, S#env.dbnam, S};
 handle_call(checkpoint, _From, S) ->
     Next = S#env.nextCP,
     Next1 = indexer_checkpoint:checkpoint(Next, S#env.chkp),
@@ -162,14 +148,13 @@ handle_call(schedule_stop, _From, S) ->
        {_, done} -> {reply, norun, S#env{running=false, sched_stop=true}};
         _ -> {reply, ack, S#env{sched_stop=true}}
     end;
-
 handle_call(start, _From, S) ->
-    {reply, ok, S#env{running=true}};
+    {reply, ok, S#env{running=true}};    
 handle_call(is_running, _From, S) ->
     {reply, S#env.running, S};
 handle_call(scheduled_stop, _From, S) ->
     {reply, S#env.sched_stop, S};
-handle_call({search, Str}, _From,S) ->
+handle_call({search, Str}, _From, S) ->
     Result = indexer_misc:search(Str, all, S#env.ets, S#env.dbnam, S#env.idx),
     {reply, Result, S};
 handle_call({search, Str, Field}, _From,S) ->
@@ -194,6 +179,111 @@ terminate(Reason, S) ->
     Ets = S#env.ets,
     indexer_trigrams:close(Ets),
     ?LOG(?INFO, "stopping ~p~n",[Reason]).
+
+worker(Pid, WorkSoFar) ->
+    case possibly_stop(Pid) of
+        void -> 
+            ?LOG(?INFO, "retrieving next batch ~n",[]),
+            Tbeg = now(),
+            case gen_server:call(Pid, next_docs, infinity) of
+                {ok, Docs} ->  
+                    Tind1 = now(),
+                    index_these_docs(Pid, Docs),
+                    Tdiff1 = timer:now_diff(now(),Tind1),
+                    ?LOG(?INFO, "time spent indexing was ~p ~n",[Tdiff1]),
+                    indexer_server:checkpoint(Pid),
+                    ?LOG(?INFO, "indexed another ~w ~n", [length(Docs)]),
+                    TotalDocs = gen_server:call(Pid, total_docs),
+                    WorkSoFarNew = WorkSoFar + length(Docs),
+                    couch_task_status:update("Indexed ~p of ~p changes (~p%)",
+                [WorkSoFarNew, TotalDocs, (WorkSoFarNew*100) div TotalDocs]),
+                    case possibly_stop(Pid) of
+                        done -> ok;
+                        void ->
+                            Totdiff = timer:now_diff(now(),Tbeg),
+                            ?LOG(?DEBUG, "time spent total was ~p ~n",[Totdiff]),
+                            ?LOG(?DEBUG, "percentage spent in indexing was ~p ~n",
+                                 [Tdiff1 / Totdiff ]),
+                            worker(Pid, WorkSoFarNew)
+                    end;
+                done ->
+                    %% we now go into polling mode
+                    %% and start polling for new updates to the db
+                    couch_task_status:update
+                      ("batch indexing complete, monitoring for changes"),
+                    poll_for_changes(Pid)                    
+            end
+    end.
+
+poll_for_changes(Pid) ->
+    case possibly_stop(Pid) of
+        done ->
+             ok;
+        void ->
+            {Deletes, Inserts, LastSeq} = indexer_server:get_changes(Pid),
+            %% first do the deletes BECAUSE they contain previous revisions
+            %% of docs for the updated case. When a doc has been added we simplying
+            %% updating the index by just doing a delete followed by an insertion
+            %% for the new version of the doc
+            index_these_docs(Pid,Deletes,false),
+            ?LOG(?INFO, "indexed another ~w ~n", [length(Deletes)]),           
+            % then do the inserts
+            index_these_docs(Pid,Inserts,true),
+            ?LOG(?INFO, "indexed another ~w ~n", [length(Inserts)]),            
+            %% then updates
+            %% checkpoint only if there were changes
+            case length(Deletes) > 0 orelse length(Inserts) > 0 of
+                true -> indexer_server:checkpoint(Pid,changes,LastSeq),
+                        couch_task_status:update(
+                          "Indexed another ~p documents",
+                          [length(Deletes) + length(Inserts)]);
+                false -> ok
+            end
+    end.
+            
+                
+possibly_stop(Pid) ->
+    case indexer_server:stop_scheduled(Pid) of 
+        true ->
+            ?LOG(?INFO, "Stopping~n", []),
+            indexer_server:stop(Pid),
+            done;
+        _ ->
+            void
+    end.
+
+index_these_docs(Pid, Docs, InsertOrDelete) ->
+    Ets = indexer_server:ets_table(Pid),
+    F1 = fun(Pid1, Doc) -> indexer_words:do_indexing(Pid1, Doc, Ets) end,    
+    F2 = fun(Key, Val, Acc) -> handle_result(Pid, Key, Val, Acc, InsertOrDelete) end,
+    indexer_misc:mapreduce(F1, F2, 0, Docs).
+
+index_these_docs(Pid, Docs) ->
+    Ets = indexer_server:ets_table(Pid),
+    F1 = fun(Pid1, Doc) -> indexer_words:do_indexing(Pid1, Doc, Ets) end,
+    
+    F2 = fun(Key, Val, Acc) ->
+                 [{Key, Val} | Acc] end,
+    MrList = indexer_misc:mapreduce(F1, F2, [], Docs),
+    MrListS = lists:sort(fun(A, B) ->
+				 element(1,A) < element(1, B) end,
+                         MrList),
+    Tbeg = now(),
+    indexer_server:write_bulk_indices(Pid, MrListS),
+    
+    Tdiff = timer:now_diff(now(),Tbeg),
+    ?LOG(?DEBUG, "time spent in writing was ~p ~n",[Tdiff]).
+    
+
+handle_result(Pid, Key, Vals, Acc, InsertOrDelete) ->
+    case InsertOrDelete of
+        true ->
+            indexer_server:write_index(Pid, Key, Vals);
+        false ->
+            indexer_server:delete_index(Pid, Key, Vals)
+    end,    
+    Acc + 1.
+
 
 
 
