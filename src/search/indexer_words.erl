@@ -25,32 +25,38 @@ do_indexing(_, [], _) ->
 
 do_indexing(Pid, Doc, EtsTrigrams) ->
     Index = proplists:get_value(<<"_id">>, element(1, Doc)),
-    Tab = ets:new(void, [ordered_set]),
-    DocListSlots = element(1, Doc),
-    lists:foldl(
-      fun(Elm, SlotNum) ->
-              case element(1, Elm) of
-                  <<"_id">> -> ok;
-                  <<"_rev">> -> ok;
-                  _ -> 
-                      Str = binary_to_list(
-			      term_to_binary(
-				element(2, Elm))),
-                      indexer_misc:foreach_word_in_string(
-                        Str, 
-                        fun(W, N) -> 
-                                process_word(W, Index, SlotNum,
-                                             Tab, EtsTrigrams, Pid),
-                                N+1
-                        end, 0)
-              end,
-              SlotNum + 1
-      end, 1, DocListSlots),
-    ets:delete(Tab).
+    case Index of
+	<<"_design",_/binary>> -> ok;
+	_ ->
+	    Tab = ets:new(void, [ordered_set]),
+	    DocListSlots = element(1, Doc),
+	    lists:foldl(
+	      fun(Elm, SlotNum) ->
+		      case element(1, Elm) of
+			  <<"_id">> -> ok;
+			  <<"_rev">> -> ok;
+			  _ -> 
+			      Str = binary_to_list(
+				      term_to_binary(
+					element(2, Elm))),
+			      SlotNam = element(1,Elm),
+			      indexer_misc:foreach_word_in_string(
+				Str, 
+				fun(W, N) -> 
+					process_word(W, Index, SlotNum, SlotNam,
+						     Tab, EtsTrigrams, Pid),
+					N+1
+				end, 0)
+
+		      end,
+		      SlotNum + 1
+	      end, 1, DocListSlots),
+	    ets:delete(Tab)
+    end.
 
 
 
-process_word(Word, Index, SlotNum, Tab, EtsTrigrams, Pid) ->
+process_word(Word, Index, SlotNum, SlotNam, Tab, EtsTrigrams, Pid) ->
     case process_word(Word, EtsTrigrams) of
 	no -> void;
 	{yes, Word1} ->
@@ -59,14 +65,14 @@ process_word(Word, Index, SlotNum, Tab, EtsTrigrams, Pid) ->
 	    case ets:lookup(Tab, Bin) of
 		[] ->
 		    ets:insert(Tab, {Bin, [SlotNum]}),
-		    Pid ! {Word1, Index, SlotNum};
+		    Pid ! {Word1, Index, SlotNum, SlotNam};
 		[{_, SlotNums}]  ->
                     %%io:format("slotnum ~w is in slots ~w ~n",[SlotNum, SlotNums]),
                     case lists:member(SlotNum, SlotNums) of
                         true -> void;
                         false ->
                             ets:insert(Tab, {Bin, [SlotNum | SlotNums]}),
-                            Pid ! {Word1, Index, SlotNum}
+                            Pid ! {Word1, Index, SlotNum, SlotNam}
                     end                    
 	    end
     end.

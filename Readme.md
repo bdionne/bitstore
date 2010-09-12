@@ -87,7 +87,7 @@ It's fairly easy to view a triple store as a labelled graph, where each triple <
 
 ### Full Text Indexing
 
-We've also added FTI to Bitstore, embedding the [work](http://github.com/bdionne/indexer) based on the ideas in the Armstrong book. Currently we index all the values in all the docs and then use the changes api to incrementally update the indices. Originally we stored the indices as couch dbs, which works surprisingly well, but we've been expirementing with different back ends. Currently we are using [bitcask](http://github.com/basho/bitcask) which is an append only key value store. So far the performance of this is excellent. It has a merge operation which accomplishes the same function as couchdb's compact. This is necessary when writing an inverted index as the same records are written often.
+We've also added FTI to Bitstore, embedding the [work](http://github.com/bdionne/bitstore/src/search) based on the ideas in the Armstrong book. Currently we index all the values in all the docs and then use the changes api to incrementally update the indices. Originally we stored the indices as couch dbs, which works surprisingly well, but we've been expirementing with different back ends. Currently we are using [bitcask](http://github.com/basho/bitcask) which is an append only key value store. So far the performance of this is excellent. It has a merge operation which accomplishes the same function as couchdb's compact. This is necessary when writing an inverted index as the same records are written often.
 
 So basically:
 

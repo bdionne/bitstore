@@ -51,7 +51,7 @@
 %%
 %%
 create_or_open_dag(DbName, Refresh) ->
-    DsName = DbName ++ "-dag",
+    DsName = couch_config:get("couchdb", "database_dir", ".") ++ "/dags/" ++ DbName,
     case filelib:is_dir(DsName) of
         true ->
             case Refresh of

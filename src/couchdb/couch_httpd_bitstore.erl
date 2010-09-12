@@ -37,6 +37,14 @@ db_req(#httpd{method='GET',path_parts=[_,<<"_index_query">>]}=Req, Db) ->
             {rows, Docs}
         ]});
 
+db_req(#httpd{method='GET',path_parts=[_,<<"_index_slots">>]}=Req, Db) ->
+    Docs = indexer:get_schema(?b2l(Db#db.name)),    
+    send_json(Req, 200, {[
+            {total_rows, length(Docs)},
+            {offset, 0},
+            {rows, Docs}
+        ]});
+
 %% Bitstore hacks for Ontylog
 
 db_req(#httpd{method='GET',path_parts=[_,<<"_onty">>]}=Req, Db) ->

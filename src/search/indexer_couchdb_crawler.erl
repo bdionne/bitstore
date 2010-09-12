@@ -32,6 +32,7 @@
          store_chkp/3,
          read_last_seq/1,
          read_doc_count/1,
+	 get_schema/1,
          write_last_seq/2,
          get_changes_since/2,
          get_previous_version/2,
@@ -39,6 +40,7 @@
          lookup_indices/2, 
          write_indices/3,
          write_bulk/2,
+	 write_schema_slots/2,
          delete_db_index/1,
          delete_indices/3
         ]).
@@ -63,16 +65,8 @@ start(DbName, [{reset, DbIndexName}]) ->
 index_exists(DbName) ->
     filelib:is_dir(DbName).
 
-delete_db_index(DbName) ->
-    DbIndexName = (DbName ++ "-idx"),
-    case filelib:is_dir(DbIndexName) of
-        true ->
-            ?LOG(?DEBUG, "removing index for ~p ~n",[DbIndexName]),
-            os:cmd("rm -rf " ++ DbIndexName);
-        _ -> 
-            ?LOG(?DEBUG, "index to remove does not exist ~p ~n",[DbIndexName]),
-            ok
-    end.
+delete_db_index(DbIndexName) ->
+    os:cmd("rm -rf " ++ DbIndexName).
 
 open_index(DbIndexName) ->
     bitcask:open(DbIndexName, [read_write, {max_file_size, 100000000}]).
@@ -265,6 +259,12 @@ read_doc_count(Db) ->
     {ok, Doc} = lookup_doc_bitcask(<<"db_stats">>, Db),
     proplists:get_value(<<"doc_count">>,element(1,Doc)).
 
+get_schema(Db) ->
+    case lookup_doc_bitcask(<<"relax-schema">>, Db) of
+	{ok, Doc} -> Doc;
+	not_found -> []
+    end.
+
 lookup_indices(Word, Db) ->
     case lookup_doc_bitcask(list_to_binary(Word), Db) of
         {ok, Doc} -> proplists:get_value(<<"indices">>,element(1, Doc));
@@ -275,7 +275,23 @@ write_bulk(MrListS, Db) ->
     lists:map(fun({Key, Vals}) ->
                       Doc = prep_doc(Key, Vals, Db),
                       store_in_cask(Db,list_to_binary(Key),Doc)
-              end, MrListS).    
+              end, MrListS).  
+
+write_schema_slots(SlotNames, Db) -> 
+    ExistingSlots = case lookup_doc_bitcask(<<"relax-schema">>,Db) of
+		      not_found ->
+			  [];
+		      {ok, Slots} -> Slots
+		  end,
+    NewSlots = lists:foldl(fun(Slot,Acc) ->
+				   case lists:member(Slot,Acc) of
+				       true ->
+					   Acc;
+				       _ -> [Slot | Acc]
+				   end
+			   end,ExistingSlots,SlotNames),
+    store_in_cask(Db,<<"relax-schema">>,NewSlots).
+    
   
 write_indices(Word, Vals, Db) ->
     BinWord = list_to_binary(Word),

@@ -25,7 +25,7 @@
 	 schedule_stop/1,
          write_index/3,
          write_bulk_indices/2,
-         delete_index/3,
+	 delete_index/3,
          delete_db_index/1,
          is_running/1,
          start/1,
@@ -37,12 +37,7 @@
 -include("bitstore.hrl").
 
 schedule_stop(Pid) ->
-    RealStop = gen_server:call(Pid, schedule_stop, infinity),
-    case RealStop of
-        norun ->
-            stop(Pid);
-        _ -> ok
-    end.
+    gen_server:call(Pid, schedule_stop, infinity).
 
 stop_scheduled(Pid) ->
     gen_server:call(Pid, scheduled_stop, infinity).
@@ -72,18 +67,19 @@ write_index(Pid, Key, Vals) ->
     gen_server:call(Pid, {write, Key, Vals}).
 
 write_bulk_indices(Pid, MrListS) ->
-    gen_server:call(Pid, {write_bulk, MrListS}, infinity).    
+    gen_server:call(Pid, {write_bulk, MrListS}, infinity).
 
-delete_index(Pid, Key, Vals) ->
+delete_index(Pid, Key, Vals) ->    
     gen_server:call(Pid, {delete, Key, Vals}).
 
-delete_db_index(DbName) ->
-    indexer_couchdb_crawler:delete_db_index(DbName).
+delete_db_index(Pid) ->
+    gen_server:call(Pid, {delete_db_index}, infinity).
 
 -record(env,
         {ets, 
          cont, 
-         dbnam, 
+         dbnam,
+	 idx_name,
          idx, 
          nextCP,
          chkp,
@@ -92,7 +88,8 @@ delete_db_index(DbName) ->
 
 init(DbName) ->
     Tab = indexer_trigrams:open(),
-    DbIndexName = binary_to_list(list_to_binary(DbName ++ "-idx")),
+    IndexName = binary_to_list(list_to_binary(DbName ++ "-idx")),
+    DbIndexName = couch_config:get("couchdb", "database_dir", ".") ++ "/fti/" ++ IndexName,
    
     Db = case indexer_couchdb_crawler:index_exists(DbIndexName) of
              true -> indexer_couchdb_crawler:open_index(DbIndexName);
@@ -109,6 +106,7 @@ init(DbName) ->
     
     {ok, #env{ets=Tab,
                       dbnam=list_to_binary(DbName),
+	              idx_name=DbIndexName,
                       idx=Db,
                       cont=Cont1,
                       nextCP=Next,
@@ -149,16 +147,16 @@ handle_call(schedule_stop, _From, S) ->
         _ -> {reply, ack, S#env{sched_stop=true}}
     end;
 handle_call(start, _From, S) ->
-    {reply, ok, S#env{running=true}};    
+    {reply, ok, S#env{running=true}};
 handle_call(is_running, _From, S) ->
     {reply, S#env.running, S};
 handle_call(scheduled_stop, _From, S) ->
     {reply, S#env.sched_stop, S};
-handle_call({search, Str}, _From, S) ->
-    Result = indexer_misc:search(Str, all, S#env.ets, S#env.dbnam, S#env.idx),
-    {reply, Result, S};
 handle_call({search, Str, Field}, _From,S) ->
     Result = indexer_misc:search(Str, Field, S#env.ets, S#env.dbnam, S#env.idx),
+    {reply, Result, S};
+handle_call({get_schema}, _From,S) ->
+    Result = indexer_couchdb_crawler:get_schema(S#env.idx),
     {reply, Result, S};
 
 handle_call({write, Key, Vals}, _From,S) ->
@@ -167,6 +165,16 @@ handle_call({write, Key, Vals}, _From,S) ->
 handle_call({write_bulk, MrListS}, _From,S) ->
     Result = indexer_couchdb_crawler:write_bulk(MrListS, S#env.idx),
     {reply, Result, S};
+handle_call({write_schema_slots, SlotNames}, _From, S) ->
+    Result = indexer_couchdb_crawler:write_schema_slots(SlotNames, S#env.idx),
+    {reply, Result, S};
+handle_call({delete_db_index}, _From,S) ->
+    Result = indexer_couchdb_crawler:delete_db_index(S#env.idx_name),
+    {reply, Result, S};
+handle_call({index_exists, DbName}, _From,S) ->
+    IndexName = binary_to_list(list_to_binary(DbName ++ "-idx")),
+    DbIndexName = couch_config:get("couchdb", "database_dir", ".") ++ "/fti/" ++ IndexName,
+    {reply, indexer_couchdb_crawler:index_exists(DbIndexName), S};
 handle_call({delete, Key, Vals}, _From,S) ->
     Result = indexer_couchdb_crawler:delete_indices(Key, Vals, S#env.idx),
     {reply, Result, S}.
@@ -233,12 +241,16 @@ poll_for_changes(Pid) ->
             %% then updates
             %% checkpoint only if there were changes
             case length(Deletes) > 0 orelse length(Inserts) > 0 of
-                true -> indexer_server:checkpoint(Pid,changes,LastSeq),
-                        couch_task_status:update(
-                          "Indexed another ~p documents",
-                          [length(Deletes) + length(Inserts)]);
-                false -> ok
-            end
+                true -> 
+		    indexer_server:checkpoint(Pid,changes,LastSeq),
+		    couch_task_status:update(
+		      "Indexed another ~p documents",
+		      [length(Deletes) + length(Inserts)]);		    			
+                false ->
+		    ok
+            end,
+	    sleep(5000),
+	    poll_for_changes(Pid)
     end.
             
                 
@@ -256,7 +268,9 @@ index_these_docs(Pid, Docs, InsertOrDelete) ->
     Ets = indexer_server:ets_table(Pid),
     F1 = fun(Pid1, Doc) -> indexer_words:do_indexing(Pid1, Doc, Ets) end,    
     F2 = fun(Key, Val, Acc) -> handle_result(Pid, Key, Val, Acc, InsertOrDelete) end,
-    indexer_misc:mapreduce(F1, F2, 0, Docs).
+    {_, SlotNames} = indexer_misc:mapreduce(F1, F2, 0, Docs),
+    gen_server:call(Pid, {write_schema_slots, SlotNames}, infinity).
+    
 
 index_these_docs(Pid, Docs) ->
     Ets = indexer_server:ets_table(Pid),
@@ -264,12 +278,15 @@ index_these_docs(Pid, Docs) ->
     
     F2 = fun(Key, Val, Acc) ->
                  [{Key, Val} | Acc] end,
-    MrList = indexer_misc:mapreduce(F1, F2, [], Docs),
+    {MrList, SlotNames} = indexer_misc:mapreduce(F1, F2, [], Docs),
+    ?LOG(?DEBUG, "The slot names are: ~p ~n",[SlotNames]),
     MrListS = lists:sort(fun(A, B) ->
 				 element(1,A) < element(1, B) end,
                          MrList),
     Tbeg = now(),
     indexer_server:write_bulk_indices(Pid, MrListS),
+
+    gen_server:call(Pid, {write_schema_slots, SlotNames}, infinity),
     
     Tdiff = timer:now_diff(now(),Tbeg),
     ?LOG(?DEBUG, "time spent in writing was ~p ~n",[Tdiff]).
@@ -283,6 +300,11 @@ handle_result(Pid, Key, Vals, Acc, InsertOrDelete) ->
             indexer_server:delete_index(Pid, Key, Vals)
     end,    
     Acc + 1.
+
+sleep(T) ->
+    receive
+    after T -> true
+    end.
 
 
 

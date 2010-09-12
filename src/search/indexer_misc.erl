@@ -72,23 +72,27 @@ reduce(Parent, F1, F2, Acc0, L) ->
     %% make a dictionary to store the Keys
     Dict0 = dict:new(),
     %% Wait for N Map processes to terminate
-    Dict1 = collect_replies(N, Dict0),
+    {Dict1, SlotNames} = collect_replies(N, Dict0, []),
 
     Acc = dict:fold(F2, Acc0, Dict1),
 
-    Parent ! {self(), Acc}.
+    Parent ! {self(), {Acc, SlotNames}}.
 
 %% collect_replies(N, Dict)
 %%     collect and merge {Key, Value} messages from N processes.
 %%     When N processes have terminate return a dictionary
 %%     of {Key, [Value]} pairs
-collect_replies(0, Dict) ->
-    Dict;
-collect_replies(N, Dict) ->
+collect_replies(0, Dict, SlotNames) ->
+   {Dict, SlotNames};
+collect_replies(N, Dict, SlotNames) ->
     receive
         {'EXIT', _,  _Why} ->
-            collect_replies(N-1, Dict);
-        {Key, Val, SlotNum} ->
+            collect_replies(N-1, Dict, SlotNames);
+        {Key, Val, SlotNum, SlotNam} ->
+	    NewSlotNames = case lists:member(SlotNam, SlotNames) of
+			       false -> [SlotNam | SlotNames];
+			       _ -> SlotNames
+			   end,
             case dict:is_key(Key, Dict) of
                 true ->
                     DocIds = dict:fetch(Key,Dict),
@@ -109,14 +113,14 @@ collect_replies(N, Dict) ->
                                                   end, DocIds),
                             Dict1 = dict:erase(Key,Dict),
                             Dict2 = dict:store(Key,NewDocIds,Dict1),
-                            collect_replies(N, Dict2);
+                            collect_replies(N, Dict2, NewSlotNames);
                         _ ->
                             Dict1 = dict:append(Key,{Val, [SlotNum]},Dict),
-                            collect_replies(N, Dict1)
+                            collect_replies(N, Dict1, NewSlotNames)
                     end;                    
                 false ->
                     Dict1 = dict:store(Key,[{Val,[SlotNum]}], Dict),
-                    collect_replies(N, Dict1)
+                    collect_replies(N, Dict1, NewSlotNames)
             end
 
     end.

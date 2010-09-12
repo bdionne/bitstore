@@ -20,7 +20,11 @@
 %%% Copyright (C) 2009   Dionne Associates, LLC.
 -author('Bob Dionne').
 
--export([start_link/0, stop_indexing/1, start_indexing/1, search/2, search/3, db_deleted/1, db_updated/1]).
+-export([start_link/0, 
+	 stop_indexing/1, 
+	 start_indexing/1, 
+	 search/2, search/3, 
+	 get_schema/1]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
@@ -32,138 +36,106 @@
 
 -include("bitstore.hrl").
 
--record(state, {dbs}).
+-record(state, {dbs, auto_index}).
 
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 init([]) -> 
+    %% interested in delete/create of database events
     couch_db_update_notifier:start_link(
-      fun({deleted, DbName}) ->
-              ?MODULE:db_deleted(binary_to_list(DbName));              
-         ({updated, DbName}) ->
-              ?MODULE:db_updated(binary_to_list(DbName));              
-         (_Else) ->
-              ok
+      fun({Event, DbName}) ->
+	      gen_server:call(?MODULE,{db_event, Event, binary_to_list(DbName)}, infinity)
       end),
-    {ok, #state{dbs=ets:new(names_pids,[set])}}.
-
-db_deleted(DbName) ->
-    gen_server:call(?MODULE,{db_deleted, DbName}, infinity).
-
-db_updated(DbName) ->
-    gen_server:call(?MODULE,{db_updated, DbName}, infinity).     
+    %% if true, indexer automatically starts indexing new databses
+    IndexDbs = case couch_config:get("couchdb", "fti_dbs", "false") of
+		   "true" -> true;
+		   _ -> false
+	       end,
+    {ok, #state{dbs=ets:new(names_pids,[set]),
+	        auto_index=IndexDbs}}.
 
 start_indexing(DbName) ->
     gen_server:call(?MODULE,{start, DbName}, infinity).
-
-check_docs(Docs) ->
-    case Docs of
-        none ->
-             [];
-        tooMany -> [];
-        _ -> Docs
-    end.    
-
-search(DbName, Str) ->
-    check_docs(gen_server:call(?MODULE, {search, DbName, Str}, infinity)).    
-
-search(DbName, Str, Field) ->
-    check_docs(gen_server:call(?MODULE, {search, DbName, Str, Field}, infinity)).
 
 stop_indexing(DbName) ->
     ?LOG(?INFO, "Scheduling a stop~n", []),
     gen_server:call(?MODULE, {stop, DbName}).
 
+search(DbName, Str) ->
+    check_docs(gen_server:call(?MODULE, {search, DbName, Str, all}, infinity)).    
+
+search(DbName, Str, Field) ->
+    check_docs(gen_server:call(?MODULE, {search, DbName, Str, Field}, infinity)).
+
+get_schema(DbName) ->
+    gen_server:call(?MODULE,{get_schema, DbName}, infinity).
+
 handle_call({start, DbName}, _From, State) ->
-
     #state{dbs=Tab} = State,
-    Pid = case ets:lookup(Tab,DbName) of
-              [{DbName, Pid1}] ->
-                  ?LOG(?DEBUG,"An indexer for ~p already exists.~n",[DbName]),
-                  Pid1;
-              _Wtf ->
-                  {ok, Pid2} = gen_server:start_link(indexer_server, [DbName], []),
-		  
-                  ets:insert(Tab,{DbName,Pid2}),
-                  Pid2
-          end,
-
-    
-    case indexer_server:is_running(Pid) of
-        true ->
-	    ok;
-        _ ->
-	    indexer_server:start(Pid),
-            spawn_link(
-              fun() -> 
-		      couch_task_status:add_task(<<"Indexing Database">>, 
-                                                 DbName, <<"Starting">>),
-                      
-                      worker(Pid, 0),
-                      couch_task_status:update("Complete")
-              end)
-    end,
+    Pid = find_or_create_idx_server(Tab, DbName, true),
+    batch_index(Pid, DbName),
     {reply, ok, State};
-
-    
-
-
-handle_call({search, DbName, Str}, _From, State) ->
-    #state{dbs=Tab} = State,
-    Pid = find_or_create_idx_server(Tab, DbName),
-    {reply, gen_server:call(Pid, {search, Str}, infinity), State};
-
-handle_call({search, DbName, Str, Field}, _From, State) ->
-    #state{dbs=Tab} = State,
-    Pid = find_or_create_idx_server(Tab, DbName),
-    {reply, gen_server:call(Pid, {search, Str, Field}, infinity), State};
 
 handle_call({stop, DbName}, _From, State) ->
     #state{dbs=Tab} = State,
-    [{DbName,Pid}] = ets:lookup(Tab,DbName),
-    ets:delete(Tab,DbName),
-    {reply, indexer_server:schedule_stop(Pid), State};
+    case find_or_create_idx_server(Tab, DbName, false) of
+	not_found ->
+	    {reply, ok, State};
+	Pid ->
+	    ets:delete(Tab,DbName),
+	    {reply, indexer_server:schedule_stop(Pid), State}
+    end;
 
-handle_call({db_updated, DbName}, _From, State) ->
-    ?LOG(?DEBUG,"Database: ~p ~n with state: ~p ~n , updated~n",[DbName, State]),
+handle_call({search, DbName, Str, Field}, _From, State) ->
     #state{dbs=Tab} = State,
-    ?LOG(?DEBUG,"The table is here ~p ~n",[Tab]),
-    case ets:lookup(Tab,DbName) of
-        [{DbName, Pid}] ->
-	    case indexer_server:is_running(Pid) of
-		false ->
-		    indexer_server:start(Pid),
-		    spawn_link(
-		      fun() -> 
-			      couch_task_status:add_task(
-				<<"Indexing Database">>, DbName, <<"Starting">>),
+    case find_or_create_idx_server(Tab, DbName, false) of
+	not_found ->
+	    {reply, none, State};
+	Pid ->
+	    {reply, gen_server:call(Pid, {search, Str, Field}, infinity), State}
+    end;
 
-			      poll_for_changes(Pid),
-			      couch_task_status:update("Complete")
-		      end);
+handle_call({get_schema, DbName}, _From, State) ->
+    #state{dbs=Tab} = State,
+    case find_or_create_idx_server(Tab, DbName, false) of
+	not_found ->
+	    {reply, [], State};
+	Pid ->
+	    {reply, gen_server:call(Pid, {get_schema}, infinity), State}
+    end;
 
-		_ -> ok
+
+handle_call({db_event, Event, DbName}, _From, State) ->
+    case Event of
+	deleted ->
+	    ?LOG(?DEBUG,"Database: ~p , deleted ~n",[DbName]),
+	    #state{dbs=Tab} = State,
+	    %% may create one even if it doesn't exist, just to make sure the index is 
+	    %% deleted
+	    case find_or_create_idx_server(Tab,DbName, true) of
+		not_found ->
+		    ?LOG(?DEBUG, "We should never execut this branch, WTF! ~n",[]);
+		Pid ->
+		    ?LOG(?DEBUG,"The Db Pid is here: ~p ~n",[Pid]),
+		    indexer_server:delete_db_index(Pid),
+		    indexer_server:stop(Pid),
+		    ets:delete(Tab,DbName)
 	    end;
-        Wtf ->
-            ?LOG(?DEBUG,"Where is the Pid for this guy? ~p ~n",[Wtf])
+	created ->
+	    ?LOG(?DEBUG,"Database: ~p ~n with state: ~p ~n , created~n",[DbName, State]),
+	    #state{dbs=Tab, auto_index=Bool} = State,
+	    case find_or_create_idx_server(Tab,DbName,Bool) of
+		not_found ->
+		    ?LOG(?DEBUG,"No index created?????????? ~n",[]),
+		    ok;
+		Pid ->
+		    batch_index(Pid, DbName)
+	    end;
+	_ -> ok    
     end,
-    {reply, ok, State};
-
-handle_call({db_deleted, DbName}, _From, State) ->
-    ?LOG(?DEBUG,"Database: ~p , deleted ~n",[DbName]),
-    #state{dbs=Tab} = State,
-    case ets:lookup(Tab,DbName) of
-        [{DbName, Pid}] ->
-            ?LOG(?DEBUG,"The Db Pid is here: ~p ~n",[Pid]),
-            indexer_server:stop(Pid),
-            ets:delete(Tab,DbName);
-        Wtf ->
-            ?LOG(?DEBUG, "There is nothing to delete for ~p ? ~n",[Wtf])
-    end,
-    indexer_server:delete_db_index(DbName),
     {reply, ok, State}.
-    
+
 
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -181,15 +153,51 @@ code_change(_OldVsn, State, _Extra) ->
 %%
 %% private helpers
 %%
-find_or_create_idx_server(EtsTab, DbName) ->
+find_or_create_idx_server(EtsTab, DbName, CreateIfNotFound) ->
+    ?LOG(?DEBUG,"Looking up indexer:  ~p ~p ~n",[DbName, CreateIfNotFound]),
     case ets:lookup(EtsTab,DbName) of
 	[] ->
-	    ?LOG(?DEBUG, "Indexer doesn't exist need to create new ~p ~n",[DbName]),
-	    {ok, NewPid} = gen_server:start_link(indexer_server, [DbName], []),
-	    ets:insert(EtsTab,{DbName,NewPid}),
-	    NewPid;
+	    IndexName = binary_to_list(list_to_binary(DbName ++ "-idx")),
+	    DbIndexName = couch_config:get("couchdb", "database_dir", ".") ++ "/fti/" ++ IndexName,
+	    case indexer_couchdb_crawler:index_exists(DbIndexName)
+		orelse CreateIfNotFound of
+		true ->
+		    ?LOG(?DEBUG, "Index exists but isn't opened or need to create new ~p ~n",[DbName]),
+		    {ok, NewPid} = gen_server:start_link(indexer_server, [DbName], []),
+		    ets:insert(EtsTab,{DbName,NewPid}),
+		    NewPid;
+		_ ->
+		    not_found
+	    end;
 	[{DbName,Pid2}] -> Pid2
     end.
+
+check_docs(Docs) ->
+    case Docs of
+        none ->
+             [];
+        tooMany -> [];
+        _ -> Docs
+    end. 
+
+batch_index(Pid, DbName) ->
+    case indexer_server:is_running(Pid) of
+        true ->
+	    ok;
+        _ ->
+	    indexer_server:start(Pid),
+            spawn_link(
+              fun() -> 
+		      couch_task_status:add_task(<<"Indexing Database">>, 
+                                                 DbName, <<"Starting">>),
+
+                      worker(Pid, 0),
+                      couch_task_status:update("Complete")
+	      
+              end)
+    end.    
+   
+
     
 
 
