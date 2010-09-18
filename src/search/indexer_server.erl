@@ -16,8 +16,8 @@
 %% but still retains the original ideas from the text book
 -author('Bob Dionne').
 
--export([worker/2,
-	 poll_for_changes/1,
+-export([worker/3,
+	 poll_for_changes/2,
          get_changes/1,
 	 ets_table/1, 
 	 checkpoint/1,
@@ -188,7 +188,7 @@ terminate(Reason, S) ->
     indexer_trigrams:close(Ets),
     ?LOG(?INFO, "stopping ~p~n",[Reason]).
 
-worker(Pid, WorkSoFar) ->
+worker(Pid, WorkSoFar, PollInt) ->
     case possibly_stop(Pid) of
         void -> 
             ?LOG(?INFO, "retrieving next batch ~n",[]),
@@ -212,18 +212,18 @@ worker(Pid, WorkSoFar) ->
                             ?LOG(?DEBUG, "time spent total was ~p ~n",[Totdiff]),
                             ?LOG(?DEBUG, "percentage spent in indexing was ~p ~n",
                                  [Tdiff1 / Totdiff ]),
-                            worker(Pid, WorkSoFarNew)
+                            worker(Pid, WorkSoFarNew, PollInt)
                     end;
                 done ->
                     %% we now go into polling mode
                     %% and start polling for new updates to the db
                     couch_task_status:update
                       ("batch indexing complete, monitoring for changes"),
-                    poll_for_changes(Pid)                    
+                    poll_for_changes(Pid, PollInt)                    
             end
     end.
 
-poll_for_changes(Pid) ->
+poll_for_changes(Pid, PollInt) ->
     case possibly_stop(Pid) of
         done ->
              ok;
@@ -249,8 +249,9 @@ poll_for_changes(Pid) ->
                 false ->
 		    ok
             end,
-	    sleep(5000),
-	    poll_for_changes(Pid)
+	    %% sleep(PollInt),
+            timer:sleep(PollInt),
+	    poll_for_changes(Pid, PollInt)
     end.
             
                 
@@ -300,11 +301,6 @@ handle_result(Pid, Key, Vals, Acc, InsertOrDelete) ->
             indexer_server:delete_index(Pid, Key, Vals)
     end,    
     Acc + 1.
-
-sleep(T) ->
-    receive
-    after T -> true
-    end.
 
 
 

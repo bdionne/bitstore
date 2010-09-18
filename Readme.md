@@ -20,20 +20,20 @@ needed, the state of the art is either
 
 One of the challenges in using DL in a complex domain is that one
 typically needs a considerable amount of domain expertise in addition
-to understanding the particular description logic used. Over the years we've seen that
+to understanding the particular description logic being used. Over the years we've seen that
 modelers rarely use modifiers such as **all** and **cardinalities**,
-instead typically opting for **some**. Mostly they want to build
+instead typically opting for **some** if not explicitly then certainly implicitly. Mostly they want to build
 taxonomies and have vague ideas about when to group role restrictions
 and when a concept's restrictions are defining or not, in other words
 both necessary and sufficient as opposed to just necessary. The
 aversion to the use of the **all** modifier seems to stem from the
 counterintuitive nature of **all** being vacuously true and a
-reluctance to make strong assertions. 
+reluctance to make strong assertions. Medicine is full of exceptions. 
 
 Moreover, in building and maintaining large terminologies there are
 concerns that have little to do with description logics, all the
-normal IT issues such as workflow, revision history, auditing, and
-business process rules. Taking a completely description logic centric
+normal IT issues such as collaborative workflow, revision history, auditing, and
+business process rules and data provenance. Taking a completely description logic centric
 view in terms of system design makes handling these other, arguably
 more pedestrian concerns, much more difficult. These concerns
 are more than just normal IT issues. Terminologies are often built by
@@ -57,7 +57,7 @@ committment to schema. Documents are uniquely identified which is
 required to support multiple federated ontologies. Meaningless
 identifiers could be used as document ids but one could also just add
 them as a **code** slot and use CouchDB's ability to generate unique
-ids internally.
+ids internally. Documents in CouchDB can also have attachments so one can store research papers, image files and so forth with the documents. This make collaborative work smoother, modelers can back up their reasons for modeling a given concept a certain way with attachments that reference the literature.
 
 ### Description Logic
 
@@ -68,7 +68,7 @@ defined in terms of other concepts, often called parents, and one can have roles
 
 The key idea is that a concept describes a set of individuals in some universe. Description logics can have quite a lot of features depending on whether they support disjunctions, disjointness, cardinalities and negations. The three main dialects of OWL, Lite, DL, and FULL, support increasing amounts of expressivity in terms of the logic with the tradeoff being the ability to do inferencing. OWL Full for example is largely intractable. 
 
-By restricting the logic to a small set of features, description logics such as Ontylog have been able to support very large vocabularies, classifying them in reasonable time. The features of Ontylog can be encoded as conjunctions of terms which are essentially binary predicates or triples. In fact OWL itself can be serialized as RDF so that triples are sufficent as storage for description logics.
+By restricting the logic to a small set of features, description logics such as Ontylog have been able to support very large vocabularies, classifying them in a reasonable time. The features of Ontylog can be encoded as conjunctions of terms which are essentially binary predicates or triples. In fact OWL itself can be serialized as RDF so that triples are sufficent as storage for description logics.
 
 ### Simple Triple Store
 
@@ -83,11 +83,11 @@ Initially we used Mnesia for the triple store. It provided a simple solution and
 
 ### Directed Acyclic Graphs
 
-It's fairly easy to view a triple store as a labelled graph, where each triple <source,arrow,target> represents a labelled arc connecting two nodes in the graph. In descriptions logics like Ontylog, the main inference process is classification, computing the subsumption relation. Ontylog uses what is sometimes called structural classification, it takes the concepts and builds a directed acyclic graph. But one can imagine forming graphs of documents in general, regardless of any logic, so the approach in Bitstore will be to layer the implementatin of ontylog on top of a more general graph data structure persisted in a triple store. We think this will add a lot of schema like functionality back into couchdb in a principled way. Users might wish to relate any pair of documents to one another. We will expose the ability to relate docs this way in the REST api. A typical use case might be adding FOAF connections to documents representing people. 
+It's fairly easy to view a triple store as a labelled graph, where each triple <source,arrow,target> represents a labelled arc connecting two nodes in the graph. In descriptions logics like Ontylog, the main inference process is classification, computing the subsumption relation. Ontylog uses what is sometimes called structural classification, it takes the concepts and builds a directed acyclic graph. But one can imagine forming graphs of documents in general, regardless of any logic, so the approach in Bitstore will be to layer the implementation of ontylog on top of a more general graph data structure persisted in a triple store. We think this will add a lot of schema like functionality back into couchdb in a principled way. Users might wish to relate any pair of documents to one another. We will expose the ability to relate docs this way in the REST api. A typical use case might be adding FOAF connections to documents representing people. It's importatn to note that Ontylog clearly distinguishes itself from the current state of the DL world in it's approach to classification. Most, if not all DL reasoners, make use of tableaux techniques which allow for much more expressiveness in the constructs they support. However this comes with a large performance hit. 
 
 ### Full Text Indexing
 
-We've also added FTI to Bitstore, embedding the [work](http://github.com/bdionne/bitstore/src/search) based on the ideas in the Armstrong book. Currently we index all the values in all the docs and then use the changes api to incrementally update the indices. Originally we stored the indices as couch dbs, which works surprisingly well, but we've been expirementing with different back ends. Currently we are using [bitcask](http://github.com/basho/bitcask) which is an append only key value store. So far the performance of this is excellent. It has a merge operation which accomplishes the same function as couchdb's compact. This is necessary when writing an inverted index as the same records are written often.
+We've also added FTI to Bitstore, embedding the [work](http://github.com/bdionne/bitstore/tree/master/src/search) based on the ideas in the Armstrong book. Currently we index all the values in all the docs and then use the changes api to incrementally update the indices. Originally we stored the indices as couch dbs, which works surprisingly well, but we've been expirementing with different back ends. Currently we are using [bitcask](http://github.com/basho/bitcask) which is an append only key value store. So far the performance of this is excellent. It has a merge operation which accomplishes the same function as couchdb's compact. This is necessary when writing an inverted index as the same records are written often.
 
 So basically:
 
@@ -110,7 +110,7 @@ Bitcask is also needed:
 
     ~/emacs/bitcask
 
-Bitcask is easy to build, just type make in the top level. You can modify the rebar.config to use git for a dependency bitcask needs (ebloom) if you don't have hg installed
+Bitcask is easy to build, just type make in the top level. You can modify the rebar.config to use git for a dependency bitcask needs (ebloom) if you don't have hg installed. 
 
 The changes to the couchdb config file that are needed are [here](http://github.com/bdionne/bitstore/blob/master/config/couch.ini) and can be added to local_dev.ini in couchdb/etc/couchdb. Bitstore now has a single top level make that builds both the indexer and ontylog, compiling the erlang into the ebin directory. The -I include option in the Makefile needs to specify the location of couchdb's header.
 
@@ -123,9 +123,9 @@ The hardest part is starting couch correctly with all the needed paths.
 Notice the command use relative paths to pick up files from the bitstore project. The -sname option is not required but it useful when using debug tools such as Distel in emacs.
 
 
-### Opinion
+### Opinions
 
-We think this provides an excellent foundation for ontology development. Couchdb's schema-less design coupled with replication and the simplicity of the REST/JSON api will provide an architecturally simple, flexible, and scalable approach to building environments for multiple collaborators to develop ontologies. Having struggled with the enormous impedance mismatch between description logics and relational database, the NoSQL movement could not have come sooner. Reasoning over graphs is just not something relational dbs were built for.
+We think this provides an excellent foundation for ontology development. Couchdb's schema-less design coupled with replication and the simplicity of the REST/JSON api will provide an architecturally simple, flexible, and scalable approach to building environments for multiple collaborators to develop ontologies. Having struggled with the enormous impedance mismatch between description logics and relational database, the NoSQL movement could not have come sooner (though I have to say the general tone of the discussion on the net around NoSQL versus SQL has a very bad signal to noise ratio). Reasoning over graphs is just not something relational dbs were built for.
 
 Moreover, trying to use a DL as the center and primary focus of a system has led to many bent screws over the years. CouchDB, together with CouchApps provides a very flexible and robust platform that will enable collaborators to incorporate various workflows and curation processes while keeping them separate from the DL aspects of the terminologies. Adding slots to documents to maintain history or evolution of terms, provenance, etc., requires no change to schemas as there are none. Additionally one can easily support multiple world views of the same set of documents by using multiple triple stores that refer to the same couchdb database. This could help solve the problem of having an epidemiologist and an anatomist both modelling the same terminology with somewhat different ideas as to upper structure and relations of importance.
 
