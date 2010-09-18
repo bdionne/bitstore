@@ -1,4 +1,4 @@
-## Prototyping FTI for CouchDB databases in CouchDB
+## FTI for CouchDB databases
 
 Chapter 20 of Joe Armstrong's <a href="http://www.pragprog.com/titles/jaerlang/programming-erlang">Erlang book</a> provides a nice example of the use of processes to do full text indexing with map/reduce. The essential idea is to spawn a process for each document to index and let the reduce function populate the inverted index as it collects the results of the map phase.
 
