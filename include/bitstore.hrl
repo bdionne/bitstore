@@ -7,7 +7,7 @@
         case Type of
             true -> io:format(Format, Args);
             false -> ok
-        end.
+        end).
 
 %% how often to poll for db changes
 -define(FTI_DBS, "false").

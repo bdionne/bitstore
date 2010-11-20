@@ -192,10 +192,8 @@ batch_index(Pid, DbName, PollInt) ->
               fun() -> 
 		      couch_task_status:add_task(<<"Indexing Database">>, 
                                                  DbName, <<"Starting">>),
-
                       worker(Pid, 0, PollInt),
-                      couch_task_status:update("Complete")
-	      
+                      couch_task_status:update("Complete")	      
               end)
     end.    
    
