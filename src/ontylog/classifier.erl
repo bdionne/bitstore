@@ -371,38 +371,38 @@ add_con_if_satisfies(_Dag,Con,Cons,Fun) ->
 create_inferred_facts(Dag,Lubs,Glbs,Concept) ->
     Arrow = get(<<"children">>),
     CheckLubs = map(fun(Lub) ->
-                            case is_parent(Dag,Concept,Lub) of
-                                true ->
-                                    false;
-                                _ ->
-                                    add_edge(Dag,Concept,Lub,get(<<"children">>)),
-                                    true
-                            end end,Lubs),
+                        case is_parent(Dag,Concept,Lub) of
+                        true ->
+                            false;
+                        _ ->
+                            add_edge(Dag,Concept,Lub,get(<<"children">>)),
+                            true
+                        end end,Lubs),
     CheckGlbs = map(fun(Glb) ->
-                            case is_parent(Dag,Glb,Concept) of
-                                true ->
-                                    false;
-                                _ ->                                    
-                                    ConsToRemove =
-                                        lists:foldl(fun(Edge,Acc) ->
-                                                            {_,_,V2,Label} = digraph:edge(Dag,Edge),
-                                                            case (Label == Arrow)
-                                                                andalso
-                                                                (V2 /= Concept)
-                                                                andalso
-                                                                is_parent(Dag,Glb,V2) of
-                                                                true ->
-                                                                    Acc ++ [V2];
-                                                                _ ->
-                                                                    Acc
-                                                            end
-                                                    end,[],digraph:edges(Dag,Concept)),
-                                    map(fun(Con) ->
-                                                remove_parent(Dag,Glb,Con)
-                                        end,ConsToRemove),
-                                    add_edge(Dag,Glb,Concept,get(<<"children">>)),
-                                    true
-                            end end,Glbs),                                    
+                        case is_parent(Dag,Glb,Concept) of
+                        true ->
+                            false;
+                        _ ->                                    
+                            ConsToRemove =
+                                lists:foldl(fun(Edge,Acc) ->
+                                                {_,_,V2,Label} = digraph:edge(Dag,Edge),
+                                                case (Label == Arrow)
+                                                andalso
+                                                (V2 /= Concept)
+                                                andalso
+                                                is_parent(Dag,Glb,V2) of
+                                                true ->
+                                                    Acc ++ [V2];
+                                                _ ->
+                                                    Acc
+                                                end
+                                            end,[],digraph:edges(Dag,Concept)),
+                            map(fun(Con) ->
+                                    remove_parent(Dag,Glb,Con)
+                                end,ConsToRemove),
+                            add_edge(Dag,Glb,Concept,get(<<"children">>)),
+                            true
+                        end end,Glbs),                                    
     case any(fun(Elem) ->
                      case Elem of
                          true ->
@@ -443,16 +443,16 @@ is_greater(Dag,Subsumer,Subsumee) ->
         true ->
             false;
         false ->
-            case SubDef == [] of
-                true ->
-                    false;
-                false ->
-                    all(fun(SupRel) ->
-                                any(fun(SubRel) ->
-                                            rel_subsumes_p(Dag,SupRel,SubRel)
-                                    end,SubDef)
-                        end,SupDef)
-            end
+        case SubDef == [] of
+        true ->
+            false;
+        false ->
+            all(fun(SupRel) ->
+                    any(fun(SubRel) ->
+                            rel_subsumes_p(Dag,SupRel,SubRel)
+                        end,SubDef)
+                end,SupDef)
+        end
     end.
     
    
@@ -462,16 +462,16 @@ is_greater(Dag,Subsumer,Subsumee) ->
 subsumes_p(Dag,Subsumer,Subsumee) ->
     %% This needs to only look for path thru "isa" links
     case Subsumer == Subsumee of
-        true ->
-            true;
-        false ->
-            case is_parent(Dag,Subsumee,Subsumer) of
-                false -> 
-                    false;
-                _ ->
-                    %%?LOG(?DEBUG,"subsumes_p found a path ~p ~p ~n",[label(Dag,Subsumee),label(Dag,Subsumer)]),
-                    true
-            end
+    true ->
+        true;
+    false ->
+        case is_parent(Dag,Subsumee,Subsumer) of
+        false -> 
+            false;
+        _ ->
+            %%?LOG(?DEBUG,"subsumes_p found a path ~p ~p ~n",[label(Dag,Subsumee),label(Dag,Subsumer)]),
+            true
+        end
     end.
 %%
 %%
@@ -479,15 +479,15 @@ rel_subsumes_p(Dag,SupRel,SubRel) ->
     %%?LOG(?DEBUG,"checking role vals ~p ~p ~n",[SupRel,SubRel]),
     IdTab = get(<<"id_tab">>),
     case element(1,SupRel) == element(1,SubRel) of
-        false ->
-            false;
-        true -> 
-            all(fun(Sup) ->
-                        any(fun(Sub) ->
-                                    subsumes_p(Dag,find_vertex(Sup,IdTab),
-                                               find_vertex(Sub,IdTab))
-                            end,element(2,SubRel))
-                end,element(2,SupRel))
+    false ->
+        false;
+    true -> 
+        all(fun(Sup) ->
+                any(fun(Sub) ->
+                        subsumes_p(Dag,find_vertex(Sup,IdTab),
+                                   find_vertex(Sub,IdTab))
+                    end,element(2,SubRel))
+            end,element(2,SupRel))
     end.
 %%
 %%

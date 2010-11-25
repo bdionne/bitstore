@@ -2,9 +2,9 @@
 %%  Excerpted from "Programming Erlang",
 %%  published by The Pragmatic Bookshelf.
 
-%%  Copyrights apply to this code. It may not be used to create training material, 
+%%  Copyrights apply to this code. It may not be used to create training material,
 %%  courses, books, articles, and the like. Contact us if you are in doubt.
-%%  We make no guarantees that this code is fit for any purpose. 
+%%  We make no guarantees that this code is fit for any purpose.
 %%  Visit http://www.pragmaticprogrammer.com/titles/jaerlang for more book information.
 %%
 %%  Original copyright: "(c) 2007 armstrongonsoftware"
@@ -20,10 +20,10 @@
 %%% Copyright (C) 2009   Dionne Associates, LLC.
 -author('Bob Dionne').
 
--export([start_link/0, 
-	 stop_indexing/1, 
-	 start_indexing/1, 
-	 search/2, search/3, 
+-export([start_link/0,
+	 stop_indexing/1,
+	 start_indexing/1,
+	 search/2, search/3,
 	 get_schema/1]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -41,7 +41,7 @@
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
-init([]) -> 
+init([]) ->
     %% interested in delete/create of database events
     couch_db_update_notifier:start_link(
       fun({Event, DbName}) ->
@@ -65,7 +65,7 @@ stop_indexing(DbName) ->
     gen_server:call(?MODULE, {stop, DbName}, infinity).
 
 search(DbName, Str) ->
-    check_docs(gen_server:call(?MODULE, {search, DbName, Str, all}, infinity)).    
+    check_docs(gen_server:call(?MODULE, {search, DbName, Str, all}, infinity)).
 
 search(DbName, Str, Field) ->
     check_docs(gen_server:call(?MODULE, {search, DbName, Str, Field}, infinity)).
@@ -113,7 +113,7 @@ handle_call({db_event, Event, DbName}, _From, State) ->
 	deleted ->
 	    ?LOG(?DEBUG,"Database: ~p , deleted ~n",[DbName]),
 	    #state{dbs=Tab} = State,
-	    %% may create one even if it doesn't exist, just to make sure the index is 
+	    %% may create one even if it doesn't exist, just to make sure the index is
 	    %% deleted
 	    case find_or_create_idx_server(Tab,DbName, false) of
 		not_found ->
@@ -134,7 +134,7 @@ handle_call({db_event, Event, DbName}, _From, State) ->
 		Pid ->
 		    batch_index(Pid, DbName, PollInt)
 	    end;
-	_ -> ok    
+	_ -> ok
     end,
     {reply, ok, State}.
 
@@ -180,7 +180,7 @@ check_docs(Docs) ->
              [];
         tooMany -> [];
         _ -> Docs
-    end. 
+    end.
 
 batch_index(Pid, DbName, PollInt) ->
     case indexer_server:is_running(Pid) of
@@ -189,16 +189,16 @@ batch_index(Pid, DbName, PollInt) ->
         _ ->
 	    indexer_server:start(Pid),
             spawn_link(
-              fun() -> 
-		      couch_task_status:add_task(<<"Indexing Database">>, 
+              fun() ->
+		      couch_task_status:add_task(<<"Indexing Database">>,
                                                  DbName, <<"Starting">>),
                       worker(Pid, 0, PollInt),
-                      couch_task_status:update("Complete")	      
+                      couch_task_status:update("Complete")
               end)
-    end.    
-   
+    end.
 
-    
+
+
 
 
 
