@@ -118,7 +118,7 @@ The hardest part is starting couch correctly with all the needed paths.
 
     cd ~/emacs/couchdb
 
-    ERL_FLAGS="-sname couch@localhost -pa ../bitstore/ebin -pa ../bitcask/ebin -pa ../bitcask/deps/ebloom/ebin ./utils/run -i
+    ERL_FLAGS="-sname couch@localhost -pa ../bitstore/ebin -pa ../bitcask/ebin -pa ../bitcask/deps/ebloom/ebin" ./utils/run -i
 
 Notice the command use relative paths to pick up files from the bitstore project. The -sname option is not required but it useful when using debug tools such as Distel in emacs.
 
