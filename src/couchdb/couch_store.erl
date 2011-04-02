@@ -24,7 +24,7 @@
 -define(ADMIN_USER_CTX, {user_ctx, #user_ctx{roles=[<<"_admin">>]}}).
 
 
-%% these functions are slightly modified versions of functions from Hovercraft  
+%% these functions are slightly modified versions of functions from Hovercraft
 
 open_db(DbName) ->
     couch_db:open(DbName, [?ADMIN_USER_CTX]).
@@ -35,7 +35,7 @@ open_db(DbName) ->
 %%--------------------------------------------------------------------
 db_info(DbName) ->
     {ok, Db} = open_db(DbName),
-    try         
+    try
         couch_db:get_db_info(Db)
     after
         catch couch_db:close(Db)
@@ -56,13 +56,13 @@ open_doc(DbName, DocId) ->
         catch couch_db:close(Db)
     end.
 
-open_doc_db(Db, DocId) ->    
+open_doc_db(Db, DocId) ->
     try
         CouchDoc = couch_httpd_db:couch_doc_open(Db, DocId, nil, []),
         Doc = couch_doc:to_json_obj(CouchDoc, []),
         {ok, Doc}
-    catch 
-        _:_Error -> ?LOG(?DEBUG,"Blew up with ~p ~n",[_Error]),       
+    catch
+        _:_Error -> ?LOG(?DEBUG,"Blew up with ~p ~n",[_Error]),
                     not_found
     end.
 
