@@ -101,26 +101,24 @@ One should be able to ignore the DL component ontylog and use it simply as a gra
 
 ### Building
 
-Bitstore is now much easier to build. The modified [couchdb](http://github.com/bdionne/couchdb/tree/bitstore) branch now only has some small mods in Futon and the couch.js client libs to extend the APIs. For best results bitstore and couchdb should be installed at the same level in the file system, .eg.
+Bitstore now makes use of rebar. The environment variable at the top of the `Makefile`
 
-    ~/emacs/couchdb
-    ~/emacs/bitstore
+    COUCHDB 
 
-Bitcask is also needed:
+can be adjusted according;y. The modified [couchdb](http://github.com/bdionne/couchdb/tree/bitstore) branch now only has some small mods in Futon and the couch.js client libs to extend the APIs. All the erlang code extending
+couchdb is now included in bitstore.
 
-    ~/emacs/bitcask
+   make
 
-Bitcask is easy to build, just type make in the top level. You can modify the rebar.config to use git for a dependency bitcask needs (ebloom) if you don't have hg installed. 
+will pull the dependency `bitcask`
 
-The changes to the couchdb config file that are needed are [here](http://github.com/bdionne/bitstore/blob/master/config/couch.ini) and can be added to local_dev.ini in couchdb/etc/couchdb. Bitstore now has a single top level make that builds both the indexer and ontylog, compiling the erlang into the ebin directory. The -I include option in the Makefile needs to specify the location of couchdb's header.
+    make config
 
-The hardest part is starting couch correctly with all the needed paths. 
+will build the `trigrams` and copy the changes needed to configure couchdb into `COUCHDB/etc/couchdb/local_dev.ini'. The changes to the couchdb config file that are needed are [here](http://github.com/bdionne/bitstore/blob/master/config/couch.ini) and can be adjusted as needed.
 
-    cd ~/emacs/couchdb
+    make run
 
-    ERL_FLAGS="-sname couch@localhost -pa ../bitstore/ebin -pa ../bitcask/ebin -pa ../bitcask/deps/ebloom/ebin" ./utils/run -i
-
-Notice the command use relative paths to pick up files from the bitstore project. The -sname option is not required but it useful when using debug tools such as Distel in emacs.
+will add the need erlang paths and start couchdb using `COUCHDB/utils/run -i' . This provides an interactive shell which can be useful for executing some of the indexer  or classifier commands directly. The -sname option is not required but it useful when using debug tools such as Distel in emacs.
 
 
 ### Opinions
