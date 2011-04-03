@@ -105,20 +105,20 @@ Bitstore now makes use of rebar. The environment variable at the top of the `Mak
 
     COUCHDB 
 
-can be adjusted according;y. The modified [couchdb](http://github.com/bdionne/couchdb/tree/bitstore) branch now only has some small mods in Futon and the couch.js client libs to extend the APIs. All the erlang code extending
+can be adjusted accordingly. The modified [couchdb](http://github.com/bdionne/couchdb/tree/bitstore) branch now only has some small mods in Futon and the couch.js client libs to extend the APIs. All the erlang code extending
 couchdb is now included in bitstore.
 
-   make
+    make
 
 will pull the dependency `bitcask`
 
     make config
 
-will build the `trigrams` and copy the changes needed to configure couchdb into `COUCHDB/etc/couchdb/local_dev.ini'. The changes to the couchdb config file that are needed are [here](http://github.com/bdionne/bitstore/blob/master/config/couch.ini) and can be adjusted as needed.
+will build the `trigrams` and copy the changes needed to configure couchdb into `COUCHDB/etc/couchdb/local_dev.ini`. The changes to the couchdb config file that are needed are [here](http://github.com/bdionne/bitstore/blob/master/config/couch.ini) and can be adjusted as needed.
 
     make run
 
-will add the need erlang paths and start couchdb using `COUCHDB/utils/run -i' . This provides an interactive shell which can be useful for executing some of the indexer  or classifier commands directly. The -sname option is not required but it useful when using debug tools such as Distel in emacs.
+will add the need erlang paths and start couchdb using `COUCHDB/utils/run -i` . This provides an interactive shell which can be useful for executing some of the indexer  or classifier commands directly. The -sname option is not required but it useful when using debug tools such as Distel in emacs.
 
 
 ### Opinions
