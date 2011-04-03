@@ -1,9 +1,9 @@
 %% ---
 %%  Excerpted from "Programming Erlang",
 %%  published by The Pragmatic Bookshelf.
-%%  Copyrights apply to this code. It may not be used to create training material, 
+%%  Copyrights apply to this code. It may not be used to create training material,
 %%  courses, books, articles, and the like. Contact us if you are in doubt.
-%%  We make no guarantees that this code is fit for any purpose. 
+%%  We make no guarantees that this code is fit for any purpose.
 %%  Visit http://www.pragmaticprogrammer.com/titles/jaerlang for more book information.
 %%
 %%  Original copyright: "(c) 2007 armstrongonsoftware"
@@ -12,7 +12,7 @@
 -export([for_each_trigram_in_the_english_language/2,
 	 make_tables/0, timer_tests/0,
 	 open/0, close/1, is_word/2,
-	 howManyTrigrams/0, 
+	 howManyTrigrams/0,
 	 make_dict/0, make_ordered_set/0, makeSet/0,
 	 lookup_all_ets/2, lookup_all_dict/2
 	]).
@@ -20,15 +20,15 @@
 
 
 
-make_tables() ->  
+make_tables() ->
     io:format("Building trigrams -- make take some time~n"),
     makeSet().
 
 make_ordered_set() -> makeAset(ordered_set, "trigramsOS.tab").
-makeSet()        -> makeAset(set, filename:dirname(code:which(?MODULE)) 
+makeSet()        -> makeAset(set, filename:dirname(code:which(?MODULE))
 			   ++ "/trigramsS.tab").
 
-makeAset(Type, FileName) ->		
+makeAset(Type, FileName) ->
     Tab = ets:new(table, [Type]),
     F = fun(Str, _) -> ets:insert(Tab, {list_to_binary(Str)}) end,
     for_each_trigram_in_the_english_language(F, 0),
@@ -74,11 +74,11 @@ lookup_all_dict(Dict, L) ->
 howManyTrigrams() ->
     F = fun(_, N) -> 1 + N  end,
     for_each_trigram_in_the_english_language(F, 0).
-    
+
 %% An iterator that iterates through all trigrams in the language
 
 for_each_trigram_in_the_english_language(F, A0) ->
-    {ok, Bin0} = file:read_file("src/search/354984si.ngl.gz"),
+    {ok, Bin0} = file:read_file("src/354984si.ngl.gz"),
     Bin = zlib:gunzip(Bin0),
     scan_word_list(binary_to_list(Bin), F, A0).
 
@@ -130,7 +130,7 @@ is_this_a_trigram(Tab, X) ->
     end.
 
 open() ->
-    {ok, I} = ets:file2tab(filename:dirname(code:which(?MODULE)) 
+    {ok, I} = ets:file2tab(filename:dirname(code:which(?MODULE))
 			   ++ "/trigramsS.tab"),
     I.
 

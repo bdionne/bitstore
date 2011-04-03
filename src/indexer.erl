@@ -48,10 +48,7 @@ init([]) ->
 	      gen_server:call(?MODULE,{db_event, Event, binary_to_list(DbName)}, infinity)
       end),
     %% if true, indexer automatically starts indexing new databses
-    IndexDbs = case couch_config:get("couchdb", "fti_dbs", ?FTI_DBS) of
-		   "true" -> true;
-		   _ -> false
-	       end,
+    IndexDbs = list_to_atom(couch_config:get("couchdb", "fti_dbs", ?FTI_DBS)),
     FtiPollInt = list_to_integer(couch_config:get("couchdb","fti_poll_interval",?POLL_INTERVAL)),
     {ok, #state{dbs=ets:new(names_pids,[set]),
                 auto_index=IndexDbs,
@@ -82,29 +79,29 @@ handle_call({start, DbName}, _From, State) ->
 handle_call({stop, DbName}, _From, State) ->
     #state{dbs=Tab} = State,
     case find_or_create_idx_server(Tab, DbName, false) of
-	not_found ->
-	    {reply, ok, State};
-	Pid ->
-	    ets:delete(Tab,DbName),
-	    {reply, indexer_server:schedule_stop(Pid), State}
+    not_found ->
+        {reply, ok, State};
+    Pid ->
+        ets:delete(Tab,DbName),
+        {reply, indexer_server:schedule_stop(Pid), State}
     end;
 
 handle_call({search, DbName, Str, Field}, _From, State) ->
     #state{dbs=Tab} = State,
     case find_or_create_idx_server(Tab, DbName, false) of
-	not_found ->
-	    {reply, none, State};
-	Pid ->
-	    {reply, gen_server:call(Pid, {search, Str, Field}, infinity), State}
+    not_found ->
+        {reply, none, State};
+    Pid ->
+        {reply, gen_server:call(Pid, {search, Str, Field}, infinity), State}
     end;
 
 handle_call({get_schema, DbName}, _From, State) ->
     #state{dbs=Tab} = State,
     case find_or_create_idx_server(Tab, DbName, false) of
-	not_found ->
-	    {reply, [], State};
-	Pid ->
-	    {reply, gen_server:call(Pid, {get_schema}, infinity), State}
+    not_found ->
+        {reply, [], State};
+    Pid ->
+        {reply, gen_server:call(Pid, {get_schema}, infinity), State}
     end;
 
 

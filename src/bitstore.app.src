@@ -1,0 +1,14 @@
+{application, bitstore,
+ [
+  {description, ""},
+  {vsn, "0.1"},
+  {modules, [ ]},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {included_applications, [couch, bitcask]},
+  {mod, { bitstore_app, []}},
+  {env, []}
+ ]}.
