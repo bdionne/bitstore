@@ -8,7 +8,7 @@
                   kernel,
                   stdlib
                  ]},
-  {included_applications, [couch, bitcask]},
+  {included_applications, [bitcask]},
   {mod, { bitstore_app, []}},
   {env, []}
  ]}.
