@@ -7,3 +7,4 @@ onty/*
 erl_crash.dump
 deps
 ebin
+.eunit

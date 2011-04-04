@@ -1,9 +1,9 @@
 %%%-------------------------------------------------------------------
 %%% File    : dag.erl
 %%% Author  : Robert Dionne
-%%% 
+%%%
 %%% This file is part of Bitstore.
-%%% 
+%%%
 %%% Bitstore is free software: you can redistribute it and/or modify
 %%% it under the terms of the GNU General Public License as published by
 %%% the Free Software Foundation, either version 3 of the License, or
@@ -26,10 +26,10 @@
 %%
 %%
 %% {Links, References}
-%% 
+%%
 %% where Links = [{arr1,[target_node_ids]}]
 %% and references = [{arr1,[source_node_ids]}]
-%% 
+%%
 %% API
 -export([create_or_open_dag/2,
          add_edge/2,
@@ -60,9 +60,9 @@ create_or_open_dag(DbName, Refresh) ->
                     os:cmd("rm -rf " ++ DsName);
                 false ->
                     ok
-            end;            
+            end;
         false ->
-            ok            
+            ok
     end,
     open(DsName, [read_write, {max_file_size, 100000000}]).
 %%
@@ -72,16 +72,16 @@ close_dag(Dag) ->
 %%
 %%
 add_edge({Source, Arrow, Target},Dag) ->
-    SourceNode = find_or_create_node(Source,Dag), 
+    SourceNode = find_or_create_node(Source,Dag),
     TargetNode = find_or_create_node(Target,Dag),
     NewLinks = add_arrow(Arrow,Target,get_links(SourceNode)),
     NewRefs = add_arrow(Arrow,Source,get_references(TargetNode)),
     store_node(Source,{NewLinks,get_references(SourceNode)},Dag),
     store_node(Target,{get_links(TargetNode),NewRefs},Dag).
 %%
-%%    
+%%
 remove_edge({Source, Arrow, Target},Dag) ->
-    SourceNode = find_or_create_node(Source,Dag), 
+    SourceNode = find_or_create_node(Source,Dag),
     TargetNode = find_or_create_node(Target,Dag),
     NewLinks = remove_arrow(Arrow,Target,get_links(SourceNode)),
     NewRefs = remove_arrow(Arrow,Source,get_references(TargetNode)),
@@ -133,7 +133,7 @@ get_sources(Target,Dag) ->
     end.
 %%
 %%
-get_roots(Arrow,Dag) -> 
+get_roots(Arrow,Dag) ->
     fold(
       Dag,
       fun(K,V,Acc) ->
@@ -166,7 +166,7 @@ get_references(Node) ->
     element(2,Node).
 %%
 %%
-%% 
+%%
 get_node(NodeId, Dag) ->
     case get(Dag, NodeId) of
         not_found ->
@@ -186,7 +186,7 @@ find_or_create_node(NodeId,Dag) ->
     end.
 %%
 %%
-add_arrow(ArrowId,NodeId,Edges) -> 
+add_arrow(ArrowId,NodeId,Edges) ->
     case proplists:lookup(ArrowId,Edges) of
         none ->
             lists:append([{ArrowId,[NodeId]}], Edges);
@@ -198,10 +198,10 @@ add_arrow(ArrowId,NodeId,Edges) ->
                     NewEdges = proplists:delete(ArrowId,Edges),
                     lists:append(NewEdges,[{ArrowId,lists:append(NodeList,[NodeId])}])
             end
-    end.    
+    end.
 %%
 %%
-remove_arrow(ArrowId,NodeId,Edges) -> 
+remove_arrow(ArrowId,NodeId,Edges) ->
     case proplists:lookup(ArrowId,Edges) of
         none ->
             Edges;
@@ -210,14 +210,14 @@ remove_arrow(ArrowId,NodeId,Edges) ->
             case length(NodeList) of
                 1 ->
                     NewEdges;
-                _ -> 
+                _ ->
                     lists:append(NewEdges,
                                  [{ArrowId,lists:delete(NodeId,NodeList)}])
             end
-    end.    
-%% 
+    end.
+%%
 %% EUnit tests
-%% 
+%%
 -ifdef(TEST).
 %%
 add_edge_test() ->
