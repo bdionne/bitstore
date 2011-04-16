@@ -19,7 +19,7 @@
 %%%
 %%% Created :  05 Dec 2009 by Robert Dionne <dionne@dionne-associates.com>
 %%%
-%%% bitstore, Copyright (C) 2009-2010   Dionne Associates, LLC.
+%%% bitstore, Copyright (C) 2009-2011   Dionne Associates, LLC.
 %%%-------------------------------------------------------------------
 -module(dag).
 -author('dionne@dionne-associates.com').
@@ -51,7 +51,7 @@
 %%
 %%
 create_or_open_dag(DbName, Refresh) ->
-    DsName = couch_config:get("couchdb", "database_dir", ".") ++ "/dags/" ++ DbName,
+    DsName = couch_config:get("couchdb", "database_dir", ".") ++ "/bitstore/dags/" ++ DbName,
     case filelib:is_dir(DsName) of
         true ->
             case Refresh of

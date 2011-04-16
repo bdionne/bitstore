@@ -19,7 +19,7 @@
 %%%
 %%% Created :  19 Jan 2010 by Robert Dionne <dionne@dionne-associates.com>
 %%%
-%%% bitstore, Copyright (C) 2009-2010   Dionne Associates, LLC.
+%%% bitstore, Copyright (C) 2009-2011   Dionne Associates, LLC.
 %%%-------------------------------------------------------------------
 -module(bitstore).
 -author('dionne@dionne-associates.com').

@@ -89,7 +89,7 @@ delete_db_index(Pid) ->
 init(DbName) ->
     Tab = indexer_trigrams:open(),
     IndexName = binary_to_list(list_to_binary(DbName ++ "-idx")),
-    DbIndexName = couch_config:get("couchdb", "database_dir", ".") ++ "/fti/" ++ IndexName,
+    DbIndexName = couch_config:get("couchdb", "database_dir", ".") ++ "/bitstore/fti/" ++ IndexName,
 
     Db = case indexer_couchdb_crawler:index_exists(DbIndexName) of
              true -> indexer_couchdb_crawler:open_index(DbIndexName);

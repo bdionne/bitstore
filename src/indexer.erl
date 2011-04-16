@@ -157,7 +157,7 @@ find_or_create_idx_server(EtsTab, DbName, CreateIfNotFound) ->
     case ets:lookup(EtsTab,DbName) of
 	[] ->
 	    IndexName = binary_to_list(list_to_binary(DbName ++ "-idx")),
-	    DbIndexName = couch_config:get("couchdb", "database_dir", ".") ++ "/fti/" ++ IndexName,
+	    DbIndexName = couch_config:get("couchdb", "database_dir", ".") ++ "/bitstore/fti/" ++ IndexName,
 	    case indexer_couchdb_crawler:index_exists(DbIndexName)
 		orelse CreateIfNotFound of
 		true ->
