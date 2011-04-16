@@ -21,25 +21,25 @@ couchTests.onty = function(debug) {
     var pred = {name : "isa", type : "role"};
     var result = db.save(pred);
 
-    T(result.ok==true); 
+    T(result.ok==true);
     T(result.id);
-    T(result.rev); 
+    T(result.rev);
 
   //pred = result;
 
   var subj = {name : "aspirin", type : "concept", Preferred_Name : "Willow Bark"};
     result = db.save(subj);
 
-    T(result.ok==true); 
+    T(result.ok==true);
     T(result.id);
-    T(result.rev); 
-    
+    T(result.rev);
+
   //subj = result;
 
     var obj = {name : "drug", type : "concept"};
     result = db.save(obj);
 
-    T(result.ok==true); 
+    T(result.ok==true);
     T(result.id);
     T(result.rev);
 

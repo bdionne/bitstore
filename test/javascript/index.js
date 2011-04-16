@@ -21,21 +21,21 @@ couchTests.index = function(debug) {
   var doc = {foo : "foo"};
   var result = db.save(doc);
 
-  
+
   T(result.ok==true); // return object has an ok member with a value true
   T(result.id); // the _id of the document is set.
   T(result.rev); // the revision id of the document is set.
 
   T(db.index().ok);
   T(db.last_req.status == 202);
-  
+
   result = db.searchDocs({word : "foo"});
   T(db.last_req.status == 200);
   T(result.total_rows == result.rows.length);
 
   T(db.index({stop:"true"}).ok);
   T(db.last_req.status == 202);
-  
-			 
+
+
 
 };
