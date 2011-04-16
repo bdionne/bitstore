@@ -15,7 +15,7 @@
 handle_index_req(#httpd{method='POST'}=Req, Db) ->
     Stop = couch_httpd:qs_value(Req, "stop","false"),
     case Stop of
-	"true" -> 
+	"true" ->
 	    indexer:stop_indexing(?b2l(Db#db.name));
 	_ -> indexer:start_indexing(?b2l(Db#db.name))
     end,
@@ -28,7 +28,7 @@ db_req(#httpd{method='GET',path_parts=[_,<<"_index_query">>]}=Req, Db) ->
     Docs = case SlotName of
                undefined ->
                    indexer:search(?b2l(Db#db.name), Word);
-               _ -> 
+               _ ->
                    indexer:search(?b2l(Db#db.name), Word, SlotName)
            end,
     send_json(Req, 200, {[
@@ -38,7 +38,7 @@ db_req(#httpd{method='GET',path_parts=[_,<<"_index_query">>]}=Req, Db) ->
         ]});
 
 db_req(#httpd{method='GET',path_parts=[_,<<"_index_slots">>]}=Req, Db) ->
-    Docs = indexer:get_schema(?b2l(Db#db.name)),    
+    Docs = indexer:get_schema(?b2l(Db#db.name)),
     send_json(Req, 200, {[
             {total_rows, length(Docs)},
             {offset, 0},
@@ -54,7 +54,7 @@ db_req(#httpd{method='GET',path_parts=[_,<<"_onty">>]}=Req, Db) ->
     Roots = couch_httpd:qs_value(Req,"roots"),
     DbName = ?b2l(Db#db.name),
 
-    
+
     Docs = case Roots of
                undefined ->
                    case Subj of
@@ -67,11 +67,11 @@ db_req(#httpd{method='GET',path_parts=[_,<<"_onty">>]}=Req, Db) ->
                            case Pred of
                                undefined -> bitstore:get_targets(?l2b(Subj),DbName);
                                _ -> bitstore:get_labeled_targets(?l2b(Subj),?l2b(Pred),DbName)
-                           end               
+                           end
                    end;
                _ -> bitstore:get_roots(?l2b(Pred), DbName)
            end,
-    
+
     send_json(Req, 200, {[
             {total_rows, length(Docs)},
             {offset, 0},

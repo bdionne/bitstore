@@ -27,7 +27,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0, 
+-export([start_link/0,
          add_labeled_edge/4,
          remove_labeled_edge/4,
          get_labeled_targets/3,
@@ -41,7 +41,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--import(dag, [create_or_open_dag/2, 
+-import(dag, [create_or_open_dag/2,
               add_edge/2,
               remove_edge/2,
               get_edge_targets/2,
@@ -86,14 +86,14 @@ get_labeled_sources(ObjId, PredId, DbName) ->
     Ids = gen_server:call(?MODULE, {get_edge_sources, {ObjId, PredId}, DbName}, infinity),
     lists:map(fun(I) ->
                       get_doc(DbName, I)
-              end, Ids).   
+              end, Ids).
 
 
 get_targets(SubId, DbName) ->
     Def = gen_server:call(?MODULE, {get_edges, SubId, DbName}, infinity),
     lists:map(fun({PredId,Vals}) ->
                       PredDoc = get_doc(DbName, PredId),
-                      {[{"pred", PredDoc}, {"vals", 
+                      {[{"pred", PredDoc}, {"vals",
                                             lists:map(fun(Id) ->
                                                               get_doc(DbName, Id)
                                                   end, Vals)}]}
@@ -109,7 +109,7 @@ get_roots(Pred, DbName) ->
     Ids = gen_server:call(?MODULE, {get_roots, Pred, DbName}, infinity),
     lists:map(fun(I) ->
                       get_doc(DbName, I)
-              end, Ids).                      
+              end, Ids).
 
 is_related(SubId,PredId,TargetId,DbName) ->
     gen_server:call(?MODULE, {path_exists, {SubId, PredId, TargetId}, DbName}, infinity).
@@ -143,7 +143,7 @@ handle_call({add_triple, Triplet, DbName}, _From, State) ->
     {reply, ok, State};
 handle_call({remove_triple, Triplet, DbName}, _From, State) ->
     #state{dbs=Tab} = State,
-    Dag = find_or_build_dag(Tab, DbName),    
+    Dag = find_or_build_dag(Tab, DbName),
     remove_edge(Triplet, Dag),
     {reply, ok, #state{dbs=Tab}};
 handle_call({get_edge_targets, Pair, DbName}, _From, State) ->
@@ -224,7 +224,7 @@ find_or_build_dag(Tab, DbName) ->
             NewDag = create_or_open_dag(DbName, false),
             ets:insert(Tab, {DbName, NewDag}),
             NewDag;
-        [{DbName, ExistingDag}] -> 
+        [{DbName, ExistingDag}] ->
             ExistingDag
     end.
 
