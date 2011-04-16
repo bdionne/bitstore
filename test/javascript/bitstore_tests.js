@@ -25,7 +25,7 @@ CouchDB.urlPrefix = "..";
 var couchTests = {};
 
 function loadTest(file) {
-  loadScript("script/test/"+file);
+  loadScript(file);
 };
 
 
