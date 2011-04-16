@@ -53,16 +53,16 @@
 create_or_open_dag(DbName, Refresh) ->
     DsName = couch_config:get("couchdb", "database_dir", ".") ++ "/bitstore/dags/" ++ DbName,
     case filelib:is_dir(DsName) of
+    true ->
+        case Refresh of
         true ->
-            case Refresh of
-                true ->
-                    ?LOG(?DEBUG, "removing dag store for ~p ~n",[DsName]),
-                    os:cmd("rm -rf " ++ DsName);
-                false ->
-                    ok
-            end;
+            ?LOG(?DEBUG, "removing dag store for ~p ~n",[DsName]),
+            os:cmd("rm -rf " ++ DsName);
         false ->
             ok
+        end;
+    false ->
+        ok
     end,
     open(DsName, [read_write, {max_file_size, 100000000}]).
 %%
@@ -91,45 +91,45 @@ remove_edge({Source, Arrow, Target},Dag) ->
 %%
 get_edge_targets({Source, Arrow},Dag) ->
     case get_node(Source,Dag) of
-        [] -> [];
-        SourceNode ->
-            Edges = proplists:lookup(Arrow,get_links(SourceNode)),
-            case Edges of
-                none ->
-                    [];
-                {Arrow, Targets} -> Targets
-            end
+    [] -> [];
+    SourceNode ->
+        Edges = proplists:lookup(Arrow,get_links(SourceNode)),
+        case Edges of
+        none ->
+            [];
+        {Arrow, Targets} -> Targets
+        end
     end.
 %%
 %%
 get_edge_sources({Target, Arrow},Dag) ->
     case get_node(Target,Dag) of
-        [] -> [];
-        TargetNode ->
-            Edges = proplists:lookup(Arrow,get_references(TargetNode)),
-            case Edges of
-                none ->
-                    [];
-                {Arrow, Sources} -> Sources
-            end
+    [] -> [];
+    TargetNode ->
+        Edges = proplists:lookup(Arrow,get_references(TargetNode)),
+        case Edges of
+        none ->
+            [];
+        {Arrow, Sources} -> Sources
+        end
     end.
 %%
 %%
 get_targets(Source,Dag) ->
     case get_node(Source,Dag) of
-        [] ->
-            [];
-        SourceNode ->
-            get_links(SourceNode)
+    [] ->
+        [];
+    SourceNode ->
+        get_links(SourceNode)
     end.
 %%
 %%
 get_sources(Target,Dag) ->
     case get_node(Target,Dag) of
-        [] ->
-            [];
-        TargetNode ->
-            get_references(TargetNode)
+    [] ->
+        [];
+    TargetNode ->
+        get_references(TargetNode)
     end.
 %%
 %%
@@ -137,17 +137,17 @@ get_roots(Arrow,Dag) ->
     fold(
       Dag,
       fun(K,V,Acc) ->
-              Node = binary_to_term(V),
-              Edges = proplists:lookup(Arrow,get_links(Node)),
-              case Edges of
-                  none ->
-                      InEdges = proplists:lookup(Arrow,get_references(Node)),
-                      case InEdges of
-                          none -> Acc;
-                          _ -> Acc ++ [K]
-                      end;
-                  _ -> Acc
-              end
+          Node = binary_to_term(V),
+          Edges = proplists:lookup(Arrow,get_links(Node)),
+          case Edges of
+          none ->
+              InEdges = proplists:lookup(Arrow,get_references(Node)),
+              case InEdges of
+              none -> Acc;
+              _ -> Acc ++ [K]
+              end;
+          _ -> Acc
+          end
       end,[]).
 %%
 path_exists({_Source,_Arrow,_Target},_Dag) ->
@@ -169,51 +169,51 @@ get_references(Node) ->
 %%
 get_node(NodeId, Dag) ->
     case get(Dag, NodeId) of
-        not_found ->
-            %% return empty if node doesn't exist, saves call
-            [];
-        {ok, Node} -> binary_to_term(Node)
+    not_found ->
+        %% return empty if node doesn't exist, saves call
+        [];
+    {ok, Node} -> binary_to_term(Node)
     end.
 %%
 %%
 find_or_create_node(NodeId,Dag) ->
     case get_node(NodeId, Dag) of
-        [] ->
-            NewNode = {[],[]},
-            store_node(NodeId,NewNode,Dag),
-            NewNode;
-        Node -> Node
+    [] ->
+        NewNode = {[],[]},
+        store_node(NodeId,NewNode,Dag),
+        NewNode;
+    Node -> Node
     end.
 %%
 %%
 add_arrow(ArrowId,NodeId,Edges) ->
     case proplists:lookup(ArrowId,Edges) of
-        none ->
-            lists:append([{ArrowId,[NodeId]}], Edges);
-        {ArrowId, NodeList} ->
-            case lists:member(NodeId,NodeList) of
-                true ->
-                    Edges;
-                _ ->
-                    NewEdges = proplists:delete(ArrowId,Edges),
-                    lists:append(NewEdges,[{ArrowId,lists:append(NodeList,[NodeId])}])
-            end
+    none ->
+        lists:append([{ArrowId,[NodeId]}], Edges);
+    {ArrowId, NodeList} ->
+        case lists:member(NodeId,NodeList) of
+        true ->
+            Edges;
+        _ ->
+            NewEdges = proplists:delete(ArrowId,Edges),
+            lists:append(NewEdges,[{ArrowId,lists:append(NodeList,[NodeId])}])
+        end
     end.
 %%
 %%
 remove_arrow(ArrowId,NodeId,Edges) ->
     case proplists:lookup(ArrowId,Edges) of
-        none ->
-            Edges;
-        {ArrowId, NodeList} ->
-            NewEdges = proplists:delete(ArrowId,Edges),
-            case length(NodeList) of
-                1 ->
-                    NewEdges;
-                _ ->
-                    lists:append(NewEdges,
-                                 [{ArrowId,lists:delete(NodeId,NodeList)}])
-            end
+    none ->
+        Edges;
+    {ArrowId, NodeList} ->
+        NewEdges = proplists:delete(ArrowId,Edges),
+        case length(NodeList) of
+        1 ->
+            NewEdges;
+        _ ->
+            lists:append(NewEdges,
+                         [{ArrowId,lists:delete(NodeId,NodeList)}])
+        end
     end.
 %%
 %% EUnit tests

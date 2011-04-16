@@ -12,6 +12,9 @@ deps:
 clean:
 	@./rebar clean
 
+test: compile
+	./rebar eunit
+
 distclean: clean
 	@./rebar delete-deps
 	@rm -Rf deps

@@ -9,6 +9,6 @@
                   stdlib
                  ]},
   {included_applications, [bitcask]},
-  {mod, { bitstore_app, []}},
+  {mod, { bitstore_app, [] }},
   {env, []}
  ]}.

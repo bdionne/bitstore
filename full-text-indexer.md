@@ -68,15 +68,3 @@ CouchDB is schema-less but presumably in most dbs docs would be fairly homogenou
 ## Next TODOs
 
 The next major task is to integrate this indexer with the rest of Bitstore, using sematic navigation over the realtionships between the concepts to better inform the search. The search itself needs a lot more enhancement, support for wildcards and prioritization of results, better handling of complex chemical names, etc..
-
-
-
-
-
-
-
-
-
-
-
- 
