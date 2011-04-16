@@ -1,13 +1,13 @@
 %% ---
 %%  Excerpted from "Programming Erlang",
 %%  published by The Pragmatic Bookshelf.
-%%  Copyrights apply to this code. It may not be used to create training material, 
+%%  Copyrights apply to this code. It may not be used to create training material,
 %%  courses, books, articles, and the like. Contact us if you are in doubt.
-%%  We make no guarantees that this code is fit for any purpose. 
+%%  We make no guarantees that this code is fit for any purpose.
 %%  Visit http://www.pragmaticprogrammer.com/titles/jaerlang for more book information.
 %%
 %% Original copyright: (c) 2007 armstrongonsoftware
-%% 
+%%
 %%---
 -module(indexer_server).
 -author('Joe Armstrong').
@@ -19,7 +19,7 @@
 -export([worker/3,
 	 poll_for_changes/2,
          get_changes/1,
-	 ets_table/1, 
+	 ets_table/1,
 	 checkpoint/1,
          checkpoint/3,
 	 schedule_stop/1,
@@ -62,25 +62,25 @@ checkpoint(Pid, changes, LastSeq) ->
     gen_server:call(Pid, {checkpoint, changes, LastSeq}).
 
 ets_table(Pid)  -> gen_server:call(Pid, ets_table).
-    
+
 write_index(Pid, Key, Vals) ->
     gen_server:call(Pid, {write, Key, Vals}).
 
 write_bulk_indices(Pid, MrListS) ->
     gen_server:call(Pid, {write_bulk, MrListS}, infinity).
 
-delete_index(Pid, Key, Vals) ->    
+delete_index(Pid, Key, Vals) ->
     gen_server:call(Pid, {delete, Key, Vals}).
 
 delete_db_index(Pid) ->
     gen_server:call(Pid, {delete_db_index}, infinity).
 
 -record(env,
-        {ets, 
-         cont, 
+        {ets,
+         cont,
          dbnam,
 	 idx_name,
-         idx, 
+         idx,
          nextCP,
          chkp,
          running=false,
@@ -90,7 +90,7 @@ init(DbName) ->
     Tab = indexer_trigrams:open(),
     IndexName = binary_to_list(list_to_binary(DbName ++ "-idx")),
     DbIndexName = couch_config:get("couchdb", "database_dir", ".") ++ "/fti/" ++ IndexName,
-   
+
     Db = case indexer_couchdb_crawler:index_exists(DbIndexName) of
              true -> indexer_couchdb_crawler:open_index(DbIndexName);
              false ->
@@ -100,10 +100,10 @@ init(DbName) ->
                  indexer_checkpoint:init(Db1, Cont),
                  Db1
          end,
-    
+
     {Next, Cont1} = indexer_checkpoint:resume(Db),
     ?LOG(?INFO, "resuming checkpoint: ~p ~p~n",[Next, Cont1]),
-    
+
     {ok, #env{ets=Tab,
                       dbnam=list_to_binary(DbName),
 	              idx_name=DbIndexName,
@@ -139,7 +139,7 @@ handle_call(checkpoint, _From, S) ->
     {reply, ok, S1};
 handle_call({checkpoint, changes, LastSeq}, _From, S) ->
     indexer_couchdb_crawler:write_last_seq(S#env.idx, LastSeq),
-    {reply, ok, S};    
+    {reply, ok, S};
 handle_call(schedule_stop, _From, S) ->
     ?LOG(?DEBUG, "value of checkpoint is ~p ~n",[S#env.chkp]),
     case S#env.chkp of
@@ -190,11 +190,11 @@ terminate(Reason, S) ->
 
 worker(Pid, WorkSoFar, PollInt) ->
     case possibly_stop(Pid) of
-        void -> 
+        void ->
             ?LOG(?INFO, "retrieving next batch ~n",[]),
             Tbeg = now(),
             case gen_server:call(Pid, next_docs, infinity) of
-                {ok, Docs} ->  
+                {ok, Docs} ->
                     Tind1 = now(),
                     index_these_docs(Pid, Docs),
                     Tdiff1 = timer:now_diff(now(),Tind1),
@@ -219,7 +219,7 @@ worker(Pid, WorkSoFar, PollInt) ->
                     %% and start polling for new updates to the db
                     couch_task_status:update
                       ("batch indexing complete, monitoring for changes"),
-                    poll_for_changes(Pid, PollInt)                    
+                    poll_for_changes(Pid, PollInt)
             end
     end.
 
@@ -234,18 +234,18 @@ poll_for_changes(Pid, PollInt) ->
             %% updating the index by just doing a delete followed by an insertion
             %% for the new version of the doc
             index_these_docs(Pid,Deletes,false),
-            ?LOG(?INFO, "indexed another ~w ~n", [length(Deletes)]),           
+            ?LOG(?INFO, "indexed another ~w ~n", [length(Deletes)]),
             % then do the inserts
             index_these_docs(Pid,Inserts,true),
-            ?LOG(?INFO, "indexed another ~w ~n", [length(Inserts)]),            
+            ?LOG(?INFO, "indexed another ~w ~n", [length(Inserts)]),
             %% then updates
             %% checkpoint only if there were changes
             case length(Deletes) > 0 orelse length(Inserts) > 0 of
-                true -> 
+                true ->
 		    indexer_server:checkpoint(Pid,changes,LastSeq),
 		    couch_task_status:update(
 		      "Indexed another ~p documents",
-		      [length(Deletes) + length(Inserts)]);		    			
+		      [length(Deletes) + length(Inserts)]);
                 false ->
 		    ok
             end,
@@ -253,10 +253,10 @@ poll_for_changes(Pid, PollInt) ->
             timer:sleep(PollInt),
 	    poll_for_changes(Pid, PollInt)
     end.
-            
-                
+
+
 possibly_stop(Pid) ->
-    case indexer_server:stop_scheduled(Pid) of 
+    case indexer_server:stop_scheduled(Pid) of
         true ->
             ?LOG(?INFO, "Stopping~n", []),
             indexer_server:stop(Pid),
@@ -267,16 +267,16 @@ possibly_stop(Pid) ->
 
 index_these_docs(Pid, Docs, InsertOrDelete) ->
     Ets = indexer_server:ets_table(Pid),
-    F1 = fun(Pid1, Doc) -> indexer_words:do_indexing(Pid1, Doc, Ets) end,    
+    F1 = fun(Pid1, Doc) -> indexer_words:do_indexing(Pid1, Doc, Ets) end,
     F2 = fun(Key, Val, Acc) -> handle_result(Pid, Key, Val, Acc, InsertOrDelete) end,
     {_, SlotNames} = indexer_misc:mapreduce(F1, F2, 0, Docs),
     gen_server:call(Pid, {write_schema_slots, SlotNames}, infinity).
-    
+
 
 index_these_docs(Pid, Docs) ->
     Ets = indexer_server:ets_table(Pid),
     F1 = fun(Pid1, Doc) -> indexer_words:do_indexing(Pid1, Doc, Ets) end,
-    
+
     F2 = fun(Key, Val, Acc) ->
                  [{Key, Val} | Acc] end,
     {MrList, SlotNames} = indexer_misc:mapreduce(F1, F2, [], Docs),
@@ -288,10 +288,10 @@ index_these_docs(Pid, Docs) ->
     indexer_server:write_bulk_indices(Pid, MrListS),
 
     gen_server:call(Pid, {write_schema_slots, SlotNames}, infinity),
-    
+
     Tdiff = timer:now_diff(now(),Tbeg),
     ?LOG(?DEBUG, "time spent in writing was ~p ~n",[Tdiff]).
-    
+
 
 handle_result(Pid, Key, Vals, Acc, InsertOrDelete) ->
     case InsertOrDelete of
@@ -299,16 +299,16 @@ handle_result(Pid, Key, Vals, Acc, InsertOrDelete) ->
             indexer_server:write_index(Pid, Key, Vals);
         false ->
             indexer_server:delete_index(Pid, Key, Vals)
-    end,    
+    end,
     Acc + 1.
 
 
 
 
-    
 
 
 
-    
+
+
 
 
