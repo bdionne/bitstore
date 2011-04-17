@@ -492,7 +492,7 @@ rel_subsumes_p(Dag,SupRel,SubRel) ->
 %%
 %%
 remove_parent(Dag,Con,Parent) ->
-    digraph:delete_path(Dag,Con,Parent).
+    digraph:del_path(Dag,Con,Parent).
 
 %%
 %%

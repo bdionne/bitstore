@@ -56,7 +56,7 @@
 
 -define(ADMIN_USER_CTX, {user_ctx, #user_ctx{roles=[<<"_admin">>]}}).
 
--record(state, {dbs}).
+-record(state, {dbs, db_dir}).
 
 %%====================================================================
 %% API
@@ -126,7 +126,9 @@ is_related(SubId,PredId,TargetId,DbName) ->
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
 init([]) ->
-    {ok, #state{dbs=ets:new(dbnames_graphs,[set])}}.
+    {ok, #state{dbs=ets:new(dbnames_graphs,[set]),
+                db_dir=couch_config:get("couchdb", "database_dir", ".")
+                ++ "/bitstore/dags/"}}.
 
 %%--------------------------------------------------------------------
 %% Function: %% handle_call(Request, From, State) -> {reply, Reply, State} |
@@ -137,43 +139,36 @@ init([]) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
-handle_call({add_triple, Triplet, DbName}, _From, State) ->
-    Dag = find_or_build_dag(State#state.dbs, DbName),
+handle_call({add_triple, Triplet, DbName}, _From, #state{dbs=Dbs, db_dir=Dir}=State) ->
+    Dag = find_or_build_dag(Dbs, Dir, DbName),
     add_edge(Triplet, Dag),
     {reply, ok, State};
-handle_call({remove_triple, Triplet, DbName}, _From, State) ->
-    #state{dbs=Tab} = State,
-    Dag = find_or_build_dag(Tab, DbName),
+handle_call({remove_triple, Triplet, DbName}, _From, #state{dbs=Dbs, db_dir=Dir}=State) ->
+    Dag = find_or_build_dag(Dbs, Dir, DbName),
     remove_edge(Triplet, Dag),
-    {reply, ok, #state{dbs=Tab}};
-handle_call({get_edge_targets, Pair, DbName}, _From, State) ->
-    #state{dbs=Tab} = State,
-    Dag = find_or_build_dag(Tab, DbName),
+    {reply, ok, State};
+handle_call({get_edge_targets, Pair, DbName}, _From, #state{dbs=Dbs, db_dir=Dir}=State) ->
+    Dag = find_or_build_dag(Dbs, Dir, DbName),
     Nodes = get_edge_targets(Pair, Dag),
     {reply, Nodes, State};
-handle_call({get_edge_sources, Pair, DbName}, _From, State) ->
-    #state{dbs=Tab} = State,
-    Dag = find_or_build_dag(Tab, DbName),
+handle_call({get_edge_sources, Pair, DbName}, _From, #state{dbs=Dbs, db_dir=Dir}=State) ->
+    Dag = find_or_build_dag(Dbs, Dir, DbName),
     Nodes = get_edge_sources(Pair, Dag),
     {reply, Nodes, State};
-handle_call({get_edges, SubId, DbName}, _From, State) ->
-    #state{dbs=Tab} = State,
-    Dag = find_or_build_dag(Tab, DbName),
+handle_call({get_edges, SubId, DbName}, _From, #state{dbs=Dbs, db_dir=Dir}=State) ->
+    Dag = find_or_build_dag(Dbs, Dir, DbName),
     ConceptDef = dag:get_targets(SubId, Dag),
     {reply, ConceptDef, State};
-handle_call({get_in_edges, SubId, DbName}, _From, State) ->
-    #state{dbs=Tab} = State,
-    Dag = find_or_build_dag(Tab, DbName),
+handle_call({get_in_edges, SubId, DbName}, _From, #state{dbs=Dbs, db_dir=Dir}=State) ->
+    Dag = find_or_build_dag(Dbs, Dir, DbName),
     ConceptDef = dag:get_sources(SubId, Dag),
     {reply, ConceptDef, State};
-handle_call({get_roots, PredId, DbName}, _From, State) ->
-    #state{dbs=Tab} = State,
-    Dag = find_or_build_dag(Tab, DbName),
+handle_call({get_roots, PredId, DbName}, _From, #state{dbs=Dbs, db_dir=Dir}=State) ->
+    Dag = find_or_build_dag(Dbs, Dir, DbName),
     Ids = dag:get_roots(PredId, Dag),
     {reply, Ids, State};
-handle_call({path_exists, Triple, DbName}, _From, State) ->
-    #state{dbs=Tab} = State,
-    Dag = find_or_build_dag(Tab, DbName),
+handle_call({path_exists, Triple, DbName}, _From, #state{dbs=Dbs, db_dir=Dir}=State) ->
+    Dag = find_or_build_dag(Dbs, Dir, DbName),
     {reply, path_exists(Triple, Dag), State}.
 %%--------------------------------------------------------------------
 %% Function: handle_cast(Msg, State) -> {noreply, State} |
@@ -218,11 +213,11 @@ code_change(_OldVsn, State, _Extra) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-find_or_build_dag(Tab, DbName) ->
-    case ets:lookup(Tab, DbName) of
+find_or_build_dag(DbTab, Dir, DbName) ->
+    case ets:lookup(DbTab, DbName) of
         [] ->
-            NewDag = create_or_open_dag(DbName, false),
-            ets:insert(Tab, {DbName, NewDag}),
+            NewDag = create_or_open_dag(Dir ++ DbName, false),
+            ets:insert(DbTab, {DbName, NewDag}),
             NewDag;
         [{DbName, ExistingDag}] ->
             ExistingDag

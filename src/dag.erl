@@ -51,20 +51,19 @@
 %%
 %%
 create_or_open_dag(DbName, Refresh) ->
-    DsName = couch_config:get("couchdb", "database_dir", ".") ++ "/bitstore/dags/" ++ DbName,
-    case filelib:is_dir(DsName) of
+    case filelib:is_dir(DbName) of
     true ->
         case Refresh of
         true ->
-            ?LOG(?DEBUG, "removing dag store for ~p ~n",[DsName]),
-            os:cmd("rm -rf " ++ DsName);
+            ?LOG(?DEBUG, "removing dag store for ~p ~n",[DbName]),
+            os:cmd("rm -rf " ++ DbName);
         false ->
             ok
         end;
     false ->
         ok
     end,
-    open(DsName, [read_write, {max_file_size, 100000000}]).
+    open(DbName, [read_write, {max_file_size, 100000000}]).
 %%
 %%
 close_dag(Dag) ->
