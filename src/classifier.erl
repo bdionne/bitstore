@@ -19,7 +19,7 @@
 %%%
 %%% Created :  19 Jan 2010 by Robert Dionne <dionne@dionne-associates.com>
 %%%
-%%% bitstore, Copyright (C) 2009-2010   Dionne Associates, LLC.
+%%% bitstore, Copyright (C) 2009-2011   Dionne Associates, LLC.
 %%%-------------------------------------------------------------------
 -module(classifier).
 -author('dionne@dionne-associates.com').
@@ -136,24 +136,24 @@ parent_count(Dag,Concept) ->
     %% ?LOG(?DEBUG,"This concept ~p has ~p edges ~n",1
     %%      [label(Dag,Concept),length(edges(Dag,Concept))]),
     lists:foldl(fun(Edge,Acc) ->
-                        {_,_,V2,Label} = digraph:edge(Dag,Edge),
-                        case Label == Arrow of
-                            true ->
-                                case V2 == Concept of
-                                    true ->
-                                        Acc;
-                                    false ->
-                                        Acc + 1
-                                end;
-                            false ->
-                                Acc
-                        end
+                    {_,_,V2,Label} = digraph:edge(Dag,Edge),
+                    case Label == Arrow of
+                    true ->
+                        case V2 == Concept of
+                        true ->
+                            Acc;
+                        false ->
+                            Acc + 1
+                        end;
+                    false ->
+                        Acc
+                    end
                 end,0,edges(Dag,Concept)).
 
 is_parent(Dag,Concept,Parent) ->
     Arrow = get(<<"children">>),
     any(fun(Edge) ->
-                {_,_,V2,Label} = digraph:edge(Dag,Edge),
+            {_,_,V2,Label} = digraph:edge(Dag,Edge),
             case Label == Arrow of
             true ->
                 case V2 == Concept of
