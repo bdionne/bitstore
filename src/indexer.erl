@@ -47,7 +47,7 @@ init([]) ->
       fun({Event, DbName}) ->
 	      gen_server:call(?MODULE,{db_event, Event, binary_to_list(DbName)}, infinity)
       end),
-    %% if true, indexer automatically starts indexing new databses
+    %% if true, indexer automatically starts indexing new databases
     IndexDbs = list_to_atom(couch_config:get("couchdb", "fti_dbs", ?FTI_DBS)),
     FtiPollInt = list_to_integer(couch_config:get("couchdb","fti_poll_interval",?POLL_INTERVAL)),
     {ok, #state{dbs=ets:new(names_pids,[set]),
@@ -107,31 +107,31 @@ handle_call({get_schema, DbName}, _From, State) ->
 
 handle_call({db_event, Event, DbName}, _From, State) ->
     case Event of
-	deleted ->
-	    ?LOG(?DEBUG,"Database: ~p , deleted ~n",[DbName]),
-	    #state{dbs=Tab} = State,
-	    %% may create one even if it doesn't exist, just to make sure the index is
-	    %% deleted
-	    case find_or_create_idx_server(Tab,DbName, false) of
-		not_found ->
-		    ?LOG(?DEBUG, "We should never execut this branch, WTF! ~n",[]);
-		Pid ->
-		    ?LOG(?DEBUG,"The Db Pid is here: ~p ~n",[Pid]),
-		    indexer_server:delete_db_index(Pid),
-		    indexer_server:stop(Pid),
-		    ets:delete(Tab,DbName)
-	    end;
-	created ->
-	    ?LOG(?DEBUG,"Database: ~p ~n with state: ~p ~n , created~n",[DbName, State]),
-	    #state{dbs=Tab, auto_index=Bool, fti_pollint=PollInt} = State,
-	    case find_or_create_idx_server(Tab,DbName,Bool) of
-		not_found ->
-		    ?LOG(?DEBUG,"No index created?????????? ~n",[]),
-		    ok;
-		Pid ->
-		    batch_index(Pid, DbName, PollInt)
-	    end;
-	_ -> ok
+    deleted ->
+        ?LOG(?DEBUG,"Database: ~p , deleted ~n",[DbName]),
+        #state{dbs=Tab} = State,
+        %% may create one even if it doesn't exist, just to make sure the index is
+        %% deleted
+        case find_or_create_idx_server(Tab,DbName, false) of
+        not_found ->
+            ?LOG(?DEBUG, "We should never execut this branch, WTF! ~n",[]);
+        Pid ->
+            ?LOG(?DEBUG,"The Db Pid is here: ~p ~n",[Pid]),
+            indexer_server:delete_db_index(Pid),
+            indexer_server:stop(Pid),
+            ets:delete(Tab,DbName)
+        end;
+    created ->
+        ?LOG(?DEBUG,"Database: ~p ~n with state: ~p ~n , created~n",[DbName, State]),
+        #state{dbs=Tab, auto_index=Bool, fti_pollint=PollInt} = State,
+        case find_or_create_idx_server(Tab,DbName,Bool) of
+        not_found ->
+            ?LOG(?DEBUG,"No index created?????????? ~n",[]),
+            ok;
+        Pid ->
+            batch_index(Pid, DbName, PollInt)
+        end;
+    _ -> ok
     end,
     {reply, ok, State}.
 
