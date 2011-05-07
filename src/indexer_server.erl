@@ -92,13 +92,13 @@ init(DbName) ->
     DbIndexName = couch_config:get("couchdb", "database_dir", ".") ++ "/bitstore/fti/" ++ IndexName,
 
     Db = case indexer_couchdb_crawler:index_exists(DbIndexName) of
-             true -> indexer_couchdb_crawler:open_index(DbIndexName);
-             false ->
-                 ?LOG(?DEBUG,"Starting new crawler with ~p ~p ~n",[list_to_binary(DbName), DbIndexName]),
-                 [Db1, Cont] = indexer_couchdb_crawler:start(list_to_binary(DbName),[{reset, DbIndexName}]),
-                 ?LOG(?INFO, "creating checkpoint:~p~n", [Cont]),
-                 indexer_checkpoint:init(Db1, Cont),
-                 Db1
+         true -> indexer_couchdb_crawler:open_index(DbIndexName);
+         false ->
+             ?LOG(?DEBUG,"Starting new crawler with ~p ~p ~n",[list_to_binary(DbName), DbIndexName]),
+             [Db1, Cont] = indexer_couchdb_crawler:start(list_to_binary(DbName),[{reset, DbIndexName}]),
+             ?LOG(?INFO, "creating checkpoint:~p~n", [Cont]),
+             indexer_checkpoint:init(Db1, Cont),
+             Db1
          end,
 
     {Next, Cont1} = indexer_checkpoint:resume(Db),
@@ -143,8 +143,8 @@ handle_call({checkpoint, changes, LastSeq}, _From, S) ->
 handle_call(schedule_stop, _From, S) ->
     ?LOG(?DEBUG, "value of checkpoint is ~p ~n",[S#env.chkp]),
     case S#env.chkp of
-       {_, done} -> {reply, norun, S#env{running=false, sched_stop=true}};
-        _ -> {reply, ack, S#env{sched_stop=true}}
+    {_, done} -> {reply, norun, S#env{running=false, sched_stop=true}};
+    _ -> {reply, ack, S#env{sched_stop=true}}
     end;
 handle_call(start, _From, S) ->
     {reply, ok, S#env{running=true}};
@@ -190,37 +190,37 @@ terminate(Reason, S) ->
 
 worker(Pid, WorkSoFar, PollInt) ->
     case possibly_stop(Pid) of
-        void ->
-            ?LOG(?INFO, "retrieving next batch ~n",[]),
-            Tbeg = now(),
-            case gen_server:call(Pid, next_docs, infinity) of
-                {ok, Docs} ->
-                    Tind1 = now(),
-                    index_these_docs(Pid, Docs),
-                    Tdiff1 = timer:now_diff(now(),Tind1),
-                    ?LOG(?INFO, "time spent indexing was ~p ~n",[Tdiff1]),
-                    indexer_server:checkpoint(Pid),
-                    ?LOG(?INFO, "indexed another ~w ~n", [length(Docs)]),
-                    TotalDocs = gen_server:call(Pid, total_docs),
-                    WorkSoFarNew = WorkSoFar + length(Docs),
-                    couch_task_status:update("Indexed ~p of ~p changes (~p%)",
-                [WorkSoFarNew, TotalDocs, (WorkSoFarNew*100) div TotalDocs]),
-                    case possibly_stop(Pid) of
-                        done -> ok;
-                        void ->
-                            Totdiff = timer:now_diff(now(),Tbeg),
-                            ?LOG(?DEBUG, "time spent total was ~p ~n",[Totdiff]),
-                            ?LOG(?DEBUG, "percentage spent in indexing was ~p ~n",
-                                 [Tdiff1 / Totdiff ]),
-                            worker(Pid, WorkSoFarNew, PollInt)
-                    end;
-                done ->
-                    %% we now go into polling mode
-                    %% and start polling for new updates to the db
-                    couch_task_status:update
-                      ("batch indexing complete, monitoring for changes"),
-                    poll_for_changes(Pid, PollInt)
-            end
+    void ->
+        ?LOG(?INFO, "retrieving next batch ~n",[]),
+        Tbeg = now(),
+        case gen_server:call(Pid, next_docs, infinity) of
+        {ok, Docs} ->
+            Tind1 = now(),
+            index_these_docs(Pid, Docs),
+            Tdiff1 = timer:now_diff(now(),Tind1),
+            ?LOG(?INFO, "time spent indexing was ~p ~n",[Tdiff1]),
+            indexer_server:checkpoint(Pid),
+            ?LOG(?INFO, "indexed another ~w ~n", [length(Docs)]),
+            TotalDocs = gen_server:call(Pid, total_docs),
+            WorkSoFarNew = WorkSoFar + length(Docs),
+            couch_task_status:update("Indexed ~p of ~p changes (~p%)",
+                                     [WorkSoFarNew, TotalDocs, (WorkSoFarNew*100) div TotalDocs]),
+            case possibly_stop(Pid) of
+            done -> ok;
+            void ->
+                Totdiff = timer:now_diff(now(),Tbeg),
+                ?LOG(?DEBUG, "time spent total was ~p ~n",[Totdiff]),
+                ?LOG(?DEBUG, "percentage spent in indexing was ~p ~n",
+                     [Tdiff1 / Totdiff ]),
+                worker(Pid, WorkSoFarNew, PollInt)
+            end;
+        done ->
+            %% we now go into polling mode
+            %% and start polling for new updates to the db
+            couch_task_status:update
+              ("batch indexing complete, monitoring for changes"),
+            poll_for_changes(Pid, PollInt)
+        end
     end.
 
 poll_for_changes(Pid, PollInt) ->

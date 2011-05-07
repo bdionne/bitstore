@@ -155,43 +155,43 @@ code_change(_OldVsn, State, _Extra) ->
 find_or_create_idx_server(EtsTab, DbName, CreateIfNotFound) ->
     ?LOG(?DEBUG,"Looking up indexer:  ~p ~p ~n",[DbName, CreateIfNotFound]),
     case ets:lookup(EtsTab,DbName) of
-	[] ->
-	    IndexName = binary_to_list(list_to_binary(DbName ++ "-idx")),
-	    DbIndexName = couch_config:get("couchdb", "database_dir", ".") ++ "/bitstore/fti/" ++ IndexName,
-	    case indexer_couchdb_crawler:index_exists(DbIndexName)
-		orelse CreateIfNotFound of
-		true ->
-		    ?LOG(?DEBUG, "Index exists but isn't opened or need to create new ~p ~n",[DbName]),
-		    {ok, NewPid} = gen_server:start_link(indexer_server, [DbName], [{timeout, infinity}]),
-		    ets:insert(EtsTab,{DbName,NewPid}),
-		    NewPid;
-		_ ->
-		    not_found
-	    end;
-	[{DbName,Pid2}] -> Pid2
+    [] ->
+        IndexName = binary_to_list(list_to_binary(DbName ++ "-idx")),
+        DbIndexName = couch_config:get("couchdb", "database_dir", ".") ++ "/bitstore/fti/" ++ IndexName,
+        case indexer_couchdb_crawler:index_exists(DbIndexName)
+        orelse CreateIfNotFound of
+        true ->
+            ?LOG(?DEBUG, "Index exists but isn't opened or need to create new ~p ~n",[DbName]),
+            {ok, NewPid} = gen_server:start_link(indexer_server, [DbName], [{timeout, infinity}]),
+            ets:insert(EtsTab,{DbName,NewPid}),
+            NewPid;
+        _ ->
+            not_found
+        end;
+    [{DbName,Pid2}] -> Pid2
     end.
 
 check_docs(Docs) ->
     case Docs of
-        none ->
-             [];
-        tooMany -> [];
-        _ -> Docs
+    none ->
+        [];
+    tooMany -> [];
+    _ -> Docs
     end.
 
 batch_index(Pid, DbName, PollInt) ->
     case indexer_server:is_running(Pid) of
-        true ->
-	    ok;
-        _ ->
-	    indexer_server:start(Pid),
-            spawn_link(
-              fun() ->
-		      couch_task_status:add_task(<<"Indexing Database">>,
-                                                 DbName, <<"Starting">>),
-                      worker(Pid, 0, PollInt),
-                      couch_task_status:update("Complete")
-              end)
+    true ->
+        ok;
+    _ ->
+        indexer_server:start(Pid),
+        spawn_link(
+          fun() ->
+              couch_task_status:add_task(<<"Indexing Database">>,
+                                         DbName, <<"Starting">>),
+              worker(Pid, 0, PollInt),
+              couch_task_status:update("Complete")
+          end)
     end.
 
 
