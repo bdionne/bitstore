@@ -51,9 +51,6 @@ start(Pid) ->
 stop(Pid) ->
      gen_server:cast(Pid, stop).
 
-%% db_name(Pid) ->
-%%     gen_server:call(Pid, db_name).
-
 get_changes(Pid) ->
      gen_server:call(Pid, changes, infinity).
 
@@ -88,7 +85,7 @@ delete_db_index(Pid) ->
 
 init(DbName) ->
     Tab = indexer_trigrams:open(),
-    IndexName = binary_to_list(list_to_binary(DbName ++ "-idx")),
+    IndexName = DbName ++ "-idx",
     DbIndexName = couch_config:get("couchdb", "database_dir", ".") ++ "/bitstore/fti/" ++ IndexName,
 
     Db = case indexer_couchdb_crawler:index_exists(DbIndexName) of
@@ -117,12 +114,12 @@ handle_call(ets_table, _From, S) ->
 handle_call(next_docs, _From, S) ->
     Cont = S#env.cont,
     case indexer_couchdb_crawler:next(Cont) of
-	{docs, Docs, ContToCkP} ->
-	    {reply, {ok, Docs}, S#env{chkp=ContToCkP}};
-	done ->
-            %% bitcask presumably doesn't need compaction??
-            %%indexer_couchdb_crawler:compact_index(S#env.idx),
-	    {reply, done, S#env{running=false}}
+    {docs, Docs, ContToCkP} ->
+        {reply, {ok, Docs}, S#env{chkp=ContToCkP}};
+    done ->
+        %% bitcask presumably doesn't need compaction??
+        %%indexer_couchdb_crawler:compact_index(S#env.idx),
+        {reply, done, S#env{running=false}}
     end;
 handle_call(changes, _From, S) ->
     LastSeq = indexer_couchdb_crawler:read_last_seq(S#env.idx),
@@ -225,33 +222,33 @@ worker(Pid, WorkSoFar, PollInt) ->
 
 poll_for_changes(Pid, PollInt) ->
     case possibly_stop(Pid) of
-        done ->
-             ok;
-        void ->
-            {Deletes, Inserts, LastSeq} = indexer_server:get_changes(Pid),
-            %% first do the deletes BECAUSE they contain previous revisions
-            %% of docs for the updated case. When a doc has been added we simplying
-            %% updating the index by just doing a delete followed by an insertion
-            %% for the new version of the doc
-            index_these_docs(Pid,Deletes,false),
-            ?LOG(?INFO, "indexed another ~w ~n", [length(Deletes)]),
-            % then do the inserts
-            index_these_docs(Pid,Inserts,true),
-            ?LOG(?INFO, "indexed another ~w ~n", [length(Inserts)]),
-            %% then updates
-            %% checkpoint only if there were changes
-            case length(Deletes) > 0 orelse length(Inserts) > 0 of
-                true ->
-		    indexer_server:checkpoint(Pid,changes,LastSeq),
-		    couch_task_status:update(
-		      "Indexed another ~p documents",
-		      [length(Deletes) + length(Inserts)]);
-                false ->
-		    ok
-            end,
-	    %% sleep(PollInt),
-            timer:sleep(PollInt),
-	    poll_for_changes(Pid, PollInt)
+    done ->
+        ok;
+    void ->
+        {Deletes, Inserts, LastSeq} = indexer_server:get_changes(Pid),
+        %% first do the deletes BECAUSE they contain previous revisions
+        %% of docs for the updated case. When a doc has been added we simplying
+        %% updating the index by just doing a delete followed by an insertion
+        %% for the new version of the doc
+        index_these_docs(Pid,Deletes,false),
+        ?LOG(?INFO, "indexed another ~w ~n", [length(Deletes)]),
+                                                % then do the inserts
+        index_these_docs(Pid,Inserts,true),
+        ?LOG(?INFO, "indexed another ~w ~n", [length(Inserts)]),
+        %% then updates
+        %% checkpoint only if there were changes
+        case length(Deletes) > 0 orelse length(Inserts) > 0 of
+        true ->
+            indexer_server:checkpoint(Pid,changes,LastSeq),
+            couch_task_status:update(
+              "Indexed another ~p documents",
+              [length(Deletes) + length(Inserts)]);
+        false ->
+            ok
+        end,
+        %% sleep(PollInt),
+        timer:sleep(PollInt),
+        poll_for_changes(Pid, PollInt)
     end.
 
 

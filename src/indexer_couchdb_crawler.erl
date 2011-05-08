@@ -261,14 +261,14 @@ read_doc_count(Db) ->
 
 get_schema(Db) ->
     case lookup_doc_bitcask(<<"relax-schema">>, Db) of
-	{ok, Doc} -> Doc;
-	not_found -> []
+    {ok, Doc} -> Doc;
+    not_found -> []
     end.
 
 lookup_indices(Word, Db) ->
     case lookup_doc_bitcask(list_to_binary(Word), Db) of
-        {ok, Doc} -> proplists:get_value(<<"indices">>,element(1, Doc));
-        not_found -> []
+    {ok, Doc} -> proplists:get_value(<<"indices">>,element(1, Doc));
+    not_found -> []
     end.
 
 write_bulk(MrListS, Db) ->
@@ -279,16 +279,16 @@ write_bulk(MrListS, Db) ->
 
 write_schema_slots(SlotNames, Db) ->
     ExistingSlots = case lookup_doc_bitcask(<<"relax-schema">>,Db) of
-		      not_found ->
-			  [];
-		      {ok, Slots} -> Slots
-		  end,
+                    not_found ->
+                        [];
+                    {ok, Slots} -> Slots
+                    end,
     NewSlots = lists:foldl(fun(Slot,Acc) ->
-				   case lists:member(Slot,Acc) of
-				       true ->
-					   Acc;
-				       _ -> [Slot | Acc]
-				   end
+                               case lists:member(Slot,Acc) of
+                               true ->
+                                   Acc;
+                               _ -> [Slot | Acc]
+                               end
 			   end,ExistingSlots,SlotNames),
     store_in_cask(Db,<<"relax-schema">>,NewSlots).
 
@@ -309,16 +309,16 @@ write_indices(Word, Vals, Db) ->
     store_in_cask(Db,BinWord,NewDoc).
 
 prep_doc(Word, Vals, Db) ->
-   case lookup_doc_bitcask(list_to_binary(Word), Db) of
-        {ok, Doc} ->
-            Props = element(1, Doc),
-            Indices = proplists:get_value(<<"indices">>, Props),
-            NewProps = proplists:delete(<<"indices">>, Props),
-            {lists:append(NewProps,
-                              [{<<"indices">>,lists:append(Indices, Vals)}] )};
-        not_found ->
-            {[{<<"_id">>, list_to_binary(Word)},
-                       {<<"indices">>,Vals}]}
+    case lookup_doc_bitcask(list_to_binary(Word), Db) of
+    {ok, Doc} ->
+        Props = element(1, Doc),
+        Indices = proplists:get_value(<<"indices">>, Props),
+        NewProps = proplists:delete(<<"indices">>, Props),
+        {lists:append(NewProps,
+                      [{<<"indices">>,lists:append(Indices, Vals)}] )};
+    not_found ->
+        {[{<<"_id">>, list_to_binary(Word)},
+          {<<"indices">>,Vals}]}
     end.
 
 delete_indices(Word, Vals, Db) ->
