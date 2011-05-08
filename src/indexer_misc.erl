@@ -1,9 +1,9 @@
 %% ---
 %%  Excerpted from "Programming Erlang",
 %%  published by The Pragmatic Bookshelf.
-%%  Copyrights apply to this code. It may not be used to create training material, 
+%%  Copyrights apply to this code. It may not be used to create training material,
 %%  courses, books, articles, and the like. Contact us if you are in doubt.
-%%  We make no guarantees that this code is fit for any purpose. 
+%%  We make no guarantees that this code is fit for any purpose.
 %%  Visit http://www.pragmaticprogrammer.com/titles/jaerlang for more book information.
 %%
 %%  Original copyright: "(c) 2007 armstrongonsoftware"
@@ -16,7 +16,7 @@
 
 
 
--export([foreach_word_in_string/3, 
+-export([foreach_word_in_string/3,
          mapreduce/4, search/5]).
 -import(lists, [filter/2, foreach/2, map/2, reverse/1, foldl/3]).
 
@@ -24,7 +24,7 @@
 
 foreach_word_in_string(Str, F, Acc) ->
     case get_word(Str) of
-        no -> 
+        no ->
             Acc;
         {Word, Str1} ->
             Acc1 = F(Word, Acc),
@@ -54,7 +54,7 @@ collect_word([], L) ->
 
 mapreduce(F1, F2, Acc0, L) ->
     S = self(),
-    Pid = spawn(fun() -> reduce(S, F1, F2, Acc0, L) end),    
+    Pid = spawn(fun() -> reduce(S, F1, F2, Acc0, L) end),
     receive
         {Pid, Result} ->
             Result
@@ -65,7 +65,7 @@ reduce(Parent, F1, F2, Acc0, L) ->
     ReducePid = self(),
     %% Create the Map processes
     %%   One for each element X in L
-    foreach(fun(X) -> 
+    foreach(fun(X) ->
                     spawn_link(fun() -> do_job(ReducePid, F1, X) end)
             end, L),
     N = length(L),
@@ -117,7 +117,7 @@ collect_replies(N, Dict, SlotNames) ->
                         _ ->
                             Dict1 = dict:append(Key,{Val, [SlotNum]},Dict),
                             collect_replies(N, Dict1, NewSlotNames)
-                    end;                    
+                    end;
                 false ->
                     Dict1 = dict:store(Key,[{Val,[SlotNum]}], Dict),
                     collect_replies(N, Dict1, NewSlotNames)
@@ -135,22 +135,22 @@ search(Str, Field, Ets, DbName, Idx) ->
     Words = indexer_misc:foreach_word_in_string(Str, F1, []),
     L1 = map(fun(I) -> indexer_words:process_word(I, Ets) end, Words),
     Words1 = [W || {yes, W} <- L1],
-    Indices = 
-        map(fun(I) -> 
-                    {I, indexer_couchdb_crawler:lookup_indices(I, Idx)} end, Words1),    
+    Indices =
+        map(fun(I) ->
+                    {I, indexer_couchdb_crawler:lookup_indices(I, Idx)} end, Words1),
     DocIds = map(fun(Pair) ->
                          map(fun(Tuple) ->
                                      element(1, Tuple)
                              end, element(2, Pair))
                  end, Indices),
     Sets = [sets:from_list(X) || X <- DocIds],
-    case Sets of 
+    case Sets of
         [] ->
             none;
         _ ->
             Unique = sets:intersection(Sets),
             Indices1 = sets:to_list(Unique),
-            IndicesToReturn = 
+            IndicesToReturn =
                 case length(Indices1) of
                     N when N > 100 ->
                         lists:sublist(Indices1,100);
@@ -170,7 +170,7 @@ search(Str, Field, Ets, DbName, Idx) ->
                                            _ -> []
                                        end
                                end, IndicesToReturn),
-                      X /= []]  
+                      X /= []]
                 after
                     couch_db:close(Db)
                 end
