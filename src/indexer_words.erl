@@ -1,13 +1,13 @@
 %%---
 %%  Excerpted from "Programming Erlang",
 %%  published by The Pragmatic Bookshelf.
-%%  Copyrights apply to this code. It may not be used to create training material, 
+%%  Copyrights apply to this code. It may not be used to create training material,
 %%  courses, books, articles, and the like. Contact us if you are in doubt.
-%%  We make no guarantees that this code is fit for any purpose. 
+%%  We make no guarantees that this code is fit for any purpose.
 %%  Visit http://www.pragmaticprogrammer.com/titles/jaerlang for more book information.
 %%
 %% Original copyright: (c) 2007 armstrongonsoftware
-%% 
+%%
 %%---
 -module(indexer_words).
 -export([do_indexing/3, process_word/2]).
@@ -35,14 +35,14 @@ do_indexing(Pid, Doc, EtsTrigrams) ->
 		      case element(1, Elm) of
 			  <<"_id">> -> ok;
 			  <<"_rev">> -> ok;
-			  _ -> 
+			  _ ->
 			      Str = binary_to_list(
 				      term_to_binary(
 					element(2, Elm))),
 			      SlotNam = element(1,Elm),
 			      indexer_misc:foreach_word_in_string(
-				Str, 
-				fun(W, N) -> 
+				Str,
+				fun(W, N) ->
 					process_word(W, Index, SlotNum, SlotNam,
 						     Tab, EtsTrigrams, Pid),
 					N+1
@@ -62,24 +62,24 @@ process_word(Word, Index, SlotNum, SlotNam, Tab, EtsTrigrams, Pid) ->
 	{yes, Word1} ->
 	    Bin  = list_to_binary(Word1),
 
-	    case ets:lookup(Tab, Bin) of
-		[] ->
-		    ets:insert(Tab, {Bin, [SlotNum]}),
-		    Pid ! {Word1, Index, SlotNum, SlotNam};
-		[{_, SlotNums}]  ->
-                    %%io:format("slotnum ~w is in slots ~w ~n",[SlotNum, SlotNums]),
-                    case lists:member(SlotNum, SlotNums) of
-                        true -> void;
-                        false ->
-                            ets:insert(Tab, {Bin, [SlotNum | SlotNums]}),
-                            Pid ! {Word1, Index, SlotNum, SlotNam}
-                    end                    
-	    end
+        case ets:lookup(Tab, Bin) of
+        [] ->
+            ets:insert(Tab, {Bin, [SlotNum]}),
+            Pid ! {Word1, Index, SlotNum, SlotNam};
+        [{_, SlotNums}]  ->
+            %%io:format("slotnum ~w is in slots ~w ~n",[SlotNum, SlotNums]),
+            case lists:member(SlotNum, SlotNums) of
+            true -> void;
+            false ->
+                ets:insert(Tab, {Bin, [SlotNum | SlotNums]}),
+                Pid ! {Word1, Index, SlotNum, SlotNam}
+            end
+        end
     end.
 
 
 
-%% @spec process_word(Word, EtsTrigram) -> {yes, Word1} | no 
+%% @spec process_word(Word, EtsTrigram) -> {yes, Word1} | no
 process_word(Word, EtsTrigrams) when length(Word) < 20 ->
     Word1 = to_lower_case(Word),
     case stop(Word1) of
@@ -88,7 +88,7 @@ process_word(Word, EtsTrigrams) when length(Word) < 20 ->
 	    case indexer_trigrams:is_word(EtsTrigrams, Word1) of
 		true ->
 		    Word2 = indexer_porter:stem(Word1),
-		    if 
+		    if
 			length(Word2) < 3 -> no;
 			true              -> {yes, Word2}
 		    end;

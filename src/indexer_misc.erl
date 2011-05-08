@@ -24,11 +24,11 @@
 
 foreach_word_in_string(Str, F, Acc) ->
     case get_word(Str) of
-        no ->
-            Acc;
-        {Word, Str1} ->
-            Acc1 = F(Word, Acc),
-            foreach_word_in_string(Str1, F, Acc1)
+    no ->
+        Acc;
+    {Word, Str1} ->
+        Acc1 = F(Word, Acc),
+        foreach_word_in_string(Str1, F, Acc1)
     end.
 
 isWordChar(X) when $A=< X, X=<$Z -> true;

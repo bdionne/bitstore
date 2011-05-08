@@ -82,8 +82,8 @@ next({DbName, StartId}) ->
            _ -> get_all_docs(DbName, [{start_key, StartId}])
            end,
     case Docs of
-        [] -> done;
-        {Cont, Docs1} -> {docs, Docs1, {DbName, Cont}}
+    [] -> done;
+    {Cont, Docs1} -> {docs, Docs1, {DbName, Cont}}
     end.
 
 open_by_id_btree(DbName) ->
