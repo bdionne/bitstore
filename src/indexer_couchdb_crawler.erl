@@ -173,26 +173,26 @@ get_all_docs(DbName, Options) ->
     {ok, _, Result} =
         couch_btree:foldl(IdBtree,
                           fun(Key, Acc) ->
-                                 case element(1, Acc) of
-                                      0 -> {stop, Acc};
-                                      _ -> TryDoc = open_doc_db(Db, element(1,Key)),
-                                           case TryDoc of
-                                               {ok, Doc} ->
-                                                   {ok, {element(1, Acc) - 1,
-                                                         [Doc | element(2, Acc)]}};
-                                               _ -> {ok, {element(1, Acc), element(2, Acc)}}
-                                           end
-                                  end
+                              case element(1, Acc) of
+                              0 -> {stop, Acc};
+                              _ -> TryDoc = open_doc_db(Db, element(1,Key)),
+                                   case TryDoc of
+                                   {ok, Doc} ->
+                                       {ok, {element(1, Acc) - 1,
+                                             [Doc | element(2, Acc)]}};
+                                   _ -> {ok, {element(1, Acc), element(2, Acc)}}
+                                   end
+                              end
                           end, {?BATCH_SIZE + 1,[]}, Options),
     Docs = element(2,Result),
     Bool = length(Docs) < ?BATCH_SIZE + 1,
     case length(Docs) of
-        0 -> [];
-        _ -> case Bool of
-                 true -> {done, Docs};
-                 _ -> {proplists:get_value(<<"_id">>,
-                                           element(1,hd(Docs))), lists:reverse(tl(Docs))}
-             end
+    0 -> [];
+    _ -> case Bool of
+         true -> {done, Docs};
+         _ -> {proplists:get_value(<<"_id">>,
+                                   element(1,hd(Docs))), lists:reverse(tl(Docs))}
+         end
     end
     after
         couch_db:close(Db)
@@ -215,15 +215,15 @@ lookup_doc_bitcask(Id, Db) ->
 
 store_chkp(DocId, B, Db) ->
     NewDoc = case lookup_doc_bitcask(DocId, Db) of
-                 {ok, Doc} ->
-                     Props = element(1, Doc),
-                     NewProps = proplists:delete(<<"chkp">>, Props),
-                     {lists:append(NewProps,
-                                   [{<<"chkp">>,B}] )};
-                 not_found ->
+             {ok, Doc} ->
+                 Props = element(1, Doc),
+                 NewProps = proplists:delete(<<"chkp">>, Props),
+                 {lists:append(NewProps,
+                               [{<<"chkp">>,B}] )};
+             not_found ->
 
-                     {[{<<"_id">>, DocId},
-                                {<<"chkp">>, B}]}
+                 {[{<<"_id">>, DocId},
+                   {<<"chkp">>, B}]}
              end,
     store_in_cask(Db,DocId,NewDoc).
 
@@ -233,14 +233,14 @@ store_in_cask(Db,Key,Val) ->
 write_last_seq(Db, LastSeq) ->
     NewDoc =
         case lookup_doc_bitcask(<<"db_stats">>, Db) of
-            {ok, Doc} ->
-                Props = element(1, Doc),
-                NewProps = proplists:delete(<<"last_seq">>, Props),
-                {lists:append(NewProps,
-                              [{<<"last_seq">>,LastSeq}] )};
-            not_found ->
-                {[{<<"_id">>, <<"db_stats">>},
-                  {<<"last_seq">>, LastSeq}]}
+        {ok, Doc} ->
+            Props = element(1, Doc),
+            NewProps = proplists:delete(<<"last_seq">>, Props),
+            {lists:append(NewProps,
+                          [{<<"last_seq">>,LastSeq}] )};
+        not_found ->
+            {[{<<"_id">>, <<"db_stats">>},
+              {<<"last_seq">>, LastSeq}]}
         end,
     store_in_cask(Db,<<"db_stats">>,NewDoc).
 
@@ -296,15 +296,15 @@ write_schema_slots(SlotNames, Db) ->
 write_indices(Word, Vals, Db) ->
     BinWord = list_to_binary(Word),
     NewDoc = case lookup_doc_bitcask(BinWord, Db) of
-                 {ok, Doc} ->
-                     Props = element(1, Doc),
-                     Indices = proplists:get_value(<<"indices">>, Props),
-                     NewProps = proplists:delete(<<"indices">>, Props),
-                     {lists:append(NewProps,
-                                   [{<<"indices">>,lists:append(Indices, Vals)}] )};
-                 not_found ->
-                     {[{<<"_id">>, BinWord},
-                       {<<"indices">>,Vals}]}
+             {ok, Doc} ->
+                 Props = element(1, Doc),
+                 Indices = proplists:get_value(<<"indices">>, Props),
+                 NewProps = proplists:delete(<<"indices">>, Props),
+                 {lists:append(NewProps,
+                               [{<<"indices">>,lists:append(Indices, Vals)}] )};
+             not_found ->
+                 {[{<<"_id">>, BinWord},
+                   {<<"indices">>,Vals}]}
              end,
     store_in_cask(Db,BinWord,NewDoc).
 
@@ -323,18 +323,18 @@ prep_doc(Word, Vals, Db) ->
 
 delete_indices(Word, Vals, Db) ->
     case lookup_doc_bitcask(list_to_binary(Word), Db) of
-        {ok, Doc} ->
-            Props = element(1, Doc),
-            Indices = proplists:get_value(<<"indices">>, Props),
-            NewIndices = lists:foldl(fun(Elem, Acc) ->
-                                             lists:delete(Elem, Acc)
-                                     end,Indices,Vals),
-            NewProps = proplists:delete(<<"indices">>, Props),
-            NewDoc =
-                {lists:append(NewProps,
-                              [{<<"indices">>,NewIndices}])},
-            store_in_cask(Db,list_to_binary(Word),NewDoc);
-        not_found -> ok
+    {ok, Doc} ->
+        Props = element(1, Doc),
+        Indices = proplists:get_value(<<"indices">>, Props),
+        NewIndices = lists:foldl(fun(Elem, Acc) ->
+                                     lists:delete(Elem, Acc)
+                                 end,Indices,Vals),
+        NewProps = proplists:delete(<<"indices">>, Props),
+        NewDoc =
+            {lists:append(NewProps,
+                          [{<<"indices">>,NewIndices}])},
+        store_in_cask(Db,list_to_binary(Word),NewDoc);
+    not_found -> ok
     end.
 
 
