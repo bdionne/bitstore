@@ -55,6 +55,7 @@ init([]) ->
                 fti_pollint=FtiPollInt}}.
 
 start_indexing(DbName) ->
+    io:format("Start Indexing ~p ~n",[DbName]),
     gen_server:call(?MODULE,{start, DbName}, infinity).
 
 stop_indexing(DbName) ->
@@ -112,9 +113,9 @@ handle_call({db_event, Event, DbName}, _From, State) ->
         #state{dbs=Tab} = State,
         %% may create one even if it doesn't exist, just to make sure the index is
         %% deleted
-        case find_or_create_idx_server(Tab,DbName, false) of
+        case find_or_create_idx_server(Tab, DbName, false) of
         not_found ->
-            ?LOG(?DEBUG, "We should never execut this branch, WTF! ~n",[]);
+            ?LOG(?DEBUG, "We should never execute this branch, WTF! ~n",[]);
         Pid ->
             ?LOG(?DEBUG,"The Db Pid is here: ~p ~n",[Pid]),
             indexer_server:delete_db_index(Pid),

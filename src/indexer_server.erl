@@ -85,7 +85,7 @@ delete_db_index(Pid) ->
 
 init(DbName) ->
     Tab = indexer_trigrams:open(),
-    IndexName = DbName ++ "-idx",
+    IndexName = binary_to_list(list_to_binary(DbName)) ++ "-idx",
     DbIndexName = couch_config:get("couchdb", "database_dir", ".") ++ "/bitstore/fti/" ++ IndexName,
 
     Db = case indexer_couchdb_crawler:index_exists(DbIndexName) of
@@ -264,9 +264,9 @@ possibly_stop(Pid) ->
 
 index_these_docs(Pid, Docs, InsertOrDelete) ->
     Ets = indexer_server:ets_table(Pid),
-    F1 = fun(Pid1, Doc) -> indexer_words:do_indexing(Pid1, Doc, Ets) end,
-    F2 = fun(Key, Val, Acc) -> handle_result(Pid, Key, Val, Acc, InsertOrDelete) end,
-    {_, SlotNames} = indexer_misc:mapreduce(F1, F2, 0, Docs),
+    MapFun = fun(Pid1, Doc) -> indexer_words:do_indexing(Pid1, Doc, Ets) end,
+    ReduceFun = fun(Key, Val, Acc) -> handle_result(Pid, Key, Val, Acc, InsertOrDelete) end,
+    {_, SlotNames} = indexer_misc:mapreduce(MapFun, ReduceFun, 0, Docs),
     gen_server:call(Pid, {write_schema_slots, SlotNames}, infinity).
 
 

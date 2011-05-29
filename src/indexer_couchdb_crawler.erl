@@ -54,6 +54,7 @@
 
 
 start(DbName, [{reset, DbIndexName}]) ->
+    io:format("starting crawler with ~p ~p ~n",[DbName, DbIndexName]),
     os:cmd("rm -rf " ++ DbIndexName),
     {ok, #db{update_seq=LastSeq}} = open_db(DbName),
     {ok, DbInfo} = db_info(DbName),
@@ -126,9 +127,9 @@ get_changes_since(DbName, SeqNum) ->
 get_previous_version(Ids, DbName) ->
     lists:map(
       fun(Id) ->
-              ?LOG(?DEBUG,"trying to get doc: ~p ~n",[Id]),
-              {ok, Db} = open_db(DbName),
-              try
+          ?LOG(?DEBUG,"trying to get doc: ~p ~n",[Id]),
+          {ok, Db} = open_db(DbName),
+          try
               DocWithRevs =
                   couch_doc:to_json_obj(couch_httpd_db:couch_doc_open(
                                           Db, Id, nil, [revs]),[revs]),
@@ -146,13 +147,13 @@ get_previous_version(Ids, DbName) ->
               couch_doc:to_json_obj(
                 couch_httpd_db:couch_doc_open(Db,Id,couch_doc:parse_rev(PrevRevId),
                                               []),[])
-              catch
-                  _:_Error ->
-                      ?LOG(?DEBUG,"someone failed with ~p ~n",[_Error]),
-                      not_found
-              after
-                  catch couch_db:close(Db)
-              end
+          catch
+              _:_Error ->
+              ?LOG(?DEBUG,"someone failed with ~p ~n",[_Error]),
+              not_found
+          after
+              catch couch_db:close(Db)
+          end
       end,Ids).
 
 get_deleted_docs(_DocIds, _DbName) ->
@@ -221,7 +222,6 @@ store_chkp(DocId, B, Db) ->
                  {lists:append(NewProps,
                                [{<<"chkp">>,B}] )};
              not_found ->
-
                  {[{<<"_id">>, DocId},
                    {<<"chkp">>, B}]}
              end,
