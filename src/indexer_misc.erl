@@ -18,7 +18,7 @@
 
 -export([foreach_word_in_string/3,
          mapreduce/4, search/5]).
--import(lists, [filter/2, foreach/2, map/2, reverse/1, foldl/3]).
+-import(lists, [foreach/2, map/2, reverse/1, foldl/3]).
 
 -include("bitstore.hrl").
 

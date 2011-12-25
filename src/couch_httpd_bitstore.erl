@@ -4,11 +4,7 @@
 -export([handle_index_req/2, db_req/2]).
 
 -import(couch_httpd,
-    [send_json/2,send_json/3,send_json/4,send_method_not_allowed/2,
-    start_json_response/2,start_json_response/3,
-    send_chunk/2,last_chunk/1,end_json_response/1,
-    start_chunked_response/3, absolute_uri/2, send/2,
-    start_response_length/4]).
+    [send_json/3]).
 
 
 %% Bitstore hacks for FTI
@@ -42,7 +38,7 @@ db_req(#httpd{method='GET',path_parts=[_,<<"_index_slots">>]}=Req, Db) ->
     send_json(Req, 200, {[
             {total_rows, length(Docs)},
             {offset, 0},
-            {rows, Docs}
+                          {rows, Docs}
         ]});
 
 %% Bitstore hacks for Ontylog
@@ -54,23 +50,23 @@ db_req(#httpd{method='GET',path_parts=[_,<<"_onty">>]}=Req, Db) ->
     Roots = couch_httpd:qs_value(Req,"roots"),
     DbName = ?b2l(Db#db.name),
 
-
-    Docs = case Roots of
-               undefined ->
-                   case Subj of
-                       undefined ->
-                           case Pred of
-                               undefined -> bitstore:get_sources(?l2b(Obj),DbName);
-                               _ -> bitstore:get_labeled_sources(?l2b(Obj),?l2b(Pred),DbName)
-                           end;
-                       _ ->
-                           case Pred of
-                               undefined -> bitstore:get_targets(?l2b(Subj),DbName);
-                               _ -> bitstore:get_labeled_targets(?l2b(Subj),?l2b(Pred),DbName)
-                           end
-                   end;
-               _ -> bitstore:get_roots(?l2b(Pred), DbName)
-           end,
+    Docs =
+        case Roots of
+        undefined ->
+            case Subj of
+            undefined ->
+                case Pred of
+                undefined -> bitstore:get_sources(?l2b(Obj),DbName);
+                _ -> bitstore:get_labeled_sources(?l2b(Obj),?l2b(Pred),DbName)
+                end;
+            _ ->
+                case Pred of
+                undefined -> bitstore:get_targets(?l2b(Subj),DbName);
+                _ -> bitstore:get_labeled_targets(?l2b(Subj),?l2b(Pred),DbName)
+                end
+            end;
+        _ -> bitstore:get_roots(?l2b(Pred), DbName)
+        end,
 
     send_json(Req, 200, {[
             {total_rows, length(Docs)},

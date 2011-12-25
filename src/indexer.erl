@@ -29,8 +29,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--import(lists, [map/2]).
--import(indexer_server, [worker/3, poll_for_changes/2]).
+-import(indexer_server, [worker/3]).
 
 -behavior(gen_server).
 
@@ -180,7 +179,7 @@ check_docs(Docs) ->
     _ -> Docs
     end.
 
-batch_index(Pid, DbName, PollInt) ->
+batch_index(Pid, _DbName, PollInt) ->
     case indexer_server:is_running(Pid) of
     true ->
         ok;
@@ -188,10 +187,10 @@ batch_index(Pid, DbName, PollInt) ->
         indexer_server:start(Pid),
         spawn_link(
           fun() ->
-              couch_task_status:add_task(<<"Indexing Database">>,
-                                         DbName, <<"Starting">>),
-              worker(Pid, 0, PollInt),
-              couch_task_status:update("Complete")
+              %%couch_task_status:add_task([{type, indexer},
+                                          %%{name, DbName}]),
+              worker(Pid, 0, PollInt)
+              %%couch_task_status:update("Complete")
           end)
     end.
 

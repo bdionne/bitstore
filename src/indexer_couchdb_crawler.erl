@@ -54,7 +54,7 @@
 
 
 start(DbName, [{reset, DbIndexName}]) ->
-    io:format("starting crawler with ~p ~p ~n",[DbName, DbIndexName]),
+    ?LOG(?DEBUG, "starting crawler with ~p ~p ~n", [DbName, DbIndexName]),
     os:cmd("rm -rf " ++ DbIndexName),
     {ok, #db{update_seq=LastSeq}} = open_db(DbName),
     {ok, DbInfo} = db_info(DbName),
@@ -70,7 +70,9 @@ delete_db_index(DbIndexName) ->
     os:cmd("rm -rf " ++ DbIndexName).
 
 open_index(DbIndexName) ->
-    bitcask:open(DbIndexName, [read_write, {max_file_size, 100000000}]).
+    Db = bitcask:open(DbIndexName, [read_write, {max_file_size, 100000000}]),
+    io:format("The number of keys in this index is ~p ~n",[length(bitcask:list_keys(Db))]),
+    Db.
 
 close_index(Db) ->
     ?LOG(?DEBUG, "closing db: ~w~n",[Db]),
@@ -99,17 +101,17 @@ get_changes_since(DbName, SeqNum) ->
     {ok, #db{update_seq=LastSeq}=Db} = open_db(DbName),
     ?LOG(?DEBUG,"In the db the lat seq is ~p ~n",[LastSeq]),
     {ok, DocInfos} =
-        couch_db:changes_since(Db, all_docs, SeqNum,
+        couch_db:changes_since(Db, SeqNum,
                                fun(DocInfos, Acc) ->
                                        {ok, lists:append(Acc, [DocInfos])} end,
-                               [],[]),
+                               [], []),
     {InsIds, UpdIds, DelIds} =
         lists:foldl(fun(DocInfo,
                         {Inserts,
                          Updates,
                          Deletes}) ->
                             ?LOG(?DEBUG, "A new Doc looks like ~p ~n",[DocInfo]),
-                            {doc_info, Id, _, [{rev_info,{Rev,_},_,Deleted,_}]}=DocInfo,
+                            {doc_info, Id, _, [{rev_info,{Rev,_},_,Deleted,_} | _]}=DocInfo,
                             case Rev of
                                 1 -> {[Id | Inserts],Updates, Deletes};
                                 _ -> case Deleted of

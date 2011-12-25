@@ -117,8 +117,8 @@ handle_call(next_docs, _From, S) ->
     {docs, Docs, ContToCkP} ->
         {reply, {ok, Docs}, S#env{chkp=ContToCkP}};
     done ->
-        %% bitcask presumably doesn't need compaction??
-        %%indexer_couchdb_crawler:compact_index(S#env.idx),
+        %% bitcask presumably doesn't need compaction?
+        %% indexer_couchdb_crawler:compact_index(S#env.idx),
         {reply, done, S#env{running=false}}
     end;
 handle_call(changes, _From, S) ->
@@ -200,8 +200,8 @@ worker(Pid, WorkSoFar, PollInt) ->
             ?LOG(?INFO, "indexed another ~w ~n", [length(Docs)]),
             TotalDocs = gen_server:call(Pid, total_docs),
             WorkSoFarNew = WorkSoFar + length(Docs),
-            couch_task_status:update("Indexed ~p of ~p changes (~p%)",
-                                     [WorkSoFarNew, TotalDocs, (WorkSoFarNew*100) div TotalDocs]),
+            %%couch_task_status:update("Indexed ~p of ~p changes (~p%)",
+              %%                       [WorkSoFarNew, TotalDocs, (WorkSoFarNew*100) div TotalDocs]),
             case possibly_stop(Pid) of
             done -> ok;
             void ->
@@ -214,8 +214,8 @@ worker(Pid, WorkSoFar, PollInt) ->
         done ->
             %% we now go into polling mode
             %% and start polling for new updates to the db
-            couch_task_status:update
-              ("batch indexing complete, monitoring for changes"),
+            %%couch_task_status:update
+              %%("batch indexing complete, monitoring for changes"),
             poll_for_changes(Pid, PollInt)
         end
     end.
@@ -239,10 +239,10 @@ poll_for_changes(Pid, PollInt) ->
         %% checkpoint only if there were changes
         case length(Deletes) > 0 orelse length(Inserts) > 0 of
         true ->
-            indexer_server:checkpoint(Pid,changes,LastSeq),
-            couch_task_status:update(
-              "Indexed another ~p documents",
-              [length(Deletes) + length(Inserts)]);
+            indexer_server:checkpoint(Pid,changes,LastSeq);
+            %% couch_task_status:update(
+            %%   "Indexed another ~p documents",
+            %%   [length(Deletes) + length(Inserts)]);
         false ->
             ok
         end,
@@ -254,12 +254,12 @@ poll_for_changes(Pid, PollInt) ->
 
 possibly_stop(Pid) ->
     case indexer_server:stop_scheduled(Pid) of
-        true ->
-            ?LOG(?INFO, "Stopping~n", []),
-            indexer_server:stop(Pid),
-            done;
-        _ ->
-            void
+    true ->
+        ?LOG(?INFO, "Stopping~n", []),
+        indexer_server:stop(Pid),
+        done;
+    _ ->
+        void
     end.
 
 index_these_docs(Pid, Docs, InsertOrDelete) ->

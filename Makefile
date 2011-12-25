@@ -28,7 +28,7 @@ config: trigrams
 	@cp config/couch.ini $(COUCHDB)/etc/couchdb/local_dev.ini
 
 run: config
-	ERL_FLAGS="-sname couch -pa ebin -pa deps/bitcask/ebin -pa deps/bitcask/deps/ebloom/ebin" $(COUCHDB)/utils/run -i
+	ERL_FLAGS="+P 100000 -sname couch -pa ebin -pa deps/bitcask/ebin -pa deps/bitcask/deps/ebloom/ebin" $(COUCHDB)/utils/run -i
 
 
 

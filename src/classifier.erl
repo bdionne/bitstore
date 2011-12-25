@@ -28,10 +28,9 @@
 
 -export([classify/3]).
 %%
--import(bitcask, [get/2,put/3,list_keys/1]).
+-import(bitcask, [list_keys/1]).
 -import(digraph, [new/1,add_vertex/1,add_vertex/3,
-                  get_path/3, edges/2,
-                  add_edge/4, out_neighbours/2, vertex/2]).
+                  edges/2, add_edge/4, vertex/2]).
 -import(lists, [map/2, all/2, any/2, reverse/1]).
 %%
 %%
@@ -59,7 +58,7 @@
 %%
 %% 5. write new inferences back to the persistent store
 %%
-classify(DagCask,Arrow,ClassifyFun) ->
+classify(DagCask,Arrow,_ClassifyFun) ->
 
     %% create new digraph and add vertex for each node in the cask,
     %% using the key for the label
@@ -102,7 +101,7 @@ classify(DagCask,Arrow,ClassifyFun) ->
             end
         end, Keys),
 
-    SortedConcepts = lists:reverse(digraph_utils:topsort(Dag)),
+    SortedConcepts = reverse(digraph_utils:topsort(Dag)),
 
     %% nothing can happen without ***Thing***
     %% and of course ***Thing*** subsumes everything
@@ -117,7 +116,7 @@ classify(DagCask,Arrow,ClassifyFun) ->
     %% to the cask
     %%
     map(fun(Concept) ->
-                ClassifyFun(Vids,Dag,Concept)
+                classify_con(Vids,Dag,Concept)
         end, SortedConcepts),
     %%
     %% store classified concepts in the cask if needed
