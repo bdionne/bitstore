@@ -27,11 +27,29 @@
 -define(b2l(V), binary_to_list(V)).
 -define(l2b(V), list_to_binary(V)).
 -define(term_to_bin(T), term_to_binary(T, [{minor_version, 1}])).
+-define(term_size(T),
+    try
+        erlang:external_size(T)
+    catch _:_ ->
+        byte_size(?term_to_bin(T))
+    end).
 
 -define(DEFAULT_ATTACHMENT_CONTENT_TYPE, <<"application/octet-stream">>).
 
--define(LOG_DEBUG(Format, Args), couch_log:debug(Format, Args)).
--define(LOG_INFO(Format, Args), couch_log:info(Format, Args)).
+-define(LOG_DEBUG(Format, Args),
+    case couch_log:debug_on() of
+        true ->
+            couch_log:debug(Format, Args);
+        false -> ok
+    end).
+
+-define(LOG_INFO(Format, Args),
+    case couch_log:info_on() of
+        true ->
+            couch_log:info(Format, Args);
+        false -> ok
+    end).
+
 -define(LOG_ERROR(Format, Args), couch_log:error(Format, Args)).
 
 % Tree::term() is really a tree(), but we don't want to require R13B04 yet
@@ -156,7 +174,6 @@
     fd_ref_counter,
     header = #db_header{},
     committed_update_seq,
-
     fulldocinfo_by_id_btree,
     docinfo_by_seq_btree,
     local_docs_btree,
@@ -171,7 +188,9 @@
     revs_limit = 1000,
     fsync_options = [],
     options = [],
-    compression
+    compression,
+    before_doc_update = nil, % nil | fun(Doc, Db) -> NewDoc
+    after_doc_read = nil     % nil | fun(Doc, Db) -> NewDoc
     }).
 
 
@@ -218,33 +237,6 @@
     headers = []
 }).
 
--record(group, {
-    sig=nil,
-    db=nil,
-    fd=nil,
-    name,
-    def_lang,
-    design_options=[],
-    views,
-    lib,
-    id_btree=nil,
-    current_seq=0,
-    purge_seq=0,
-    query_server=nil,
-    waiting_delayed_commit=nil
-    }).
-
--record(view,
-    {id_num,
-    update_seq=0,
-    purge_seq=0,
-    map_names=[],
-    def,
-    btree=nil,
-    reduce_funs=[],
-    options=[]
-    }).
-
 -record(index_header,
     {seq=0,
     purge_seq=0,
@@ -264,6 +256,8 @@
     heartbeat,
     timeout,
     filter = "",
+    filter_fun,
+    filter_args = [],
     include_docs = false,
     conflicts = false,
     db_open_options = []
