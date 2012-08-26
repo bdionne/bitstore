@@ -43,8 +43,9 @@ start_link() ->
 init([]) ->
     %% interested in delete/create of database events
     couch_db_update_notifier:start_link(
-      fun({Event, DbName}) ->
-	      gen_server:call(?MODULE,{db_event, Event, binary_to_list(DbName)}, infinity)
+      fun({Event, DbName}) when Event == created orelse Event == deleted ->
+          gen_server:call(?MODULE,{db_event, Event, DbName}, infinity);
+         (_) -> ok
       end),
     %% if true, indexer automatically starts indexing new databases
     IndexDbs = list_to_atom(couch_config:get("couchdb", "fti_dbs", ?FTI_DBS)),
@@ -87,6 +88,7 @@ handle_call({stop, DbName}, _From, State) ->
     end;
 
 handle_call({search, DbName, Str, Field}, _From, State) ->
+    io:format("please search for ~p ~n",[{DbName, Str, Field}]),
     #state{dbs=Tab} = State,
     case find_or_create_idx_server(Tab, DbName, false) of
     not_found ->
@@ -156,13 +158,13 @@ find_or_create_idx_server(EtsTab, DbName, CreateIfNotFound) ->
     ?LOG(?DEBUG,"Looking up indexer:  ~p ~p ~n",[DbName, CreateIfNotFound]),
     case ets:lookup(EtsTab,DbName) of
     [] ->
-        IndexName = binary_to_list(list_to_binary(DbName ++ "-idx")),
+        IndexName = binary_to_list(DbName) ++ "-idx",
         DbIndexName = couch_config:get("couchdb", "database_dir", ".") ++ "/bitstore/fti/" ++ IndexName,
         case indexer_couchdb_crawler:index_exists(DbIndexName)
         orelse CreateIfNotFound of
         true ->
             ?LOG(?DEBUG, "Index exists but isn't opened or need to create new ~p ~n",[DbName]),
-            {ok, NewPid} = gen_server:start_link(indexer_server, [DbName], [{timeout, infinity}]),
+            {ok, NewPid} = gen_server:start_link(indexer_server, DbName, [{timeout, infinity}]),
             ets:insert(EtsTab,{DbName,NewPid}),
             NewPid;
         _ ->

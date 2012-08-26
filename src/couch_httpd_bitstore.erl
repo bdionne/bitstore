@@ -12,8 +12,8 @@ handle_index_req(#httpd{method='POST'}=Req, Db) ->
     Stop = couch_httpd:qs_value(Req, "stop","false"),
     case Stop of
 	"true" ->
-	    indexer:stop_indexing(?b2l(Db#db.name));
-	_ -> indexer:start_indexing(?b2l(Db#db.name))
+	    indexer:stop_indexing(Db#db.name);
+	_ -> indexer:start_indexing(Db#db.name)
     end,
     send_json(Req, 202, {[{ok, true}]}).
 
@@ -23,9 +23,9 @@ db_req(#httpd{method='GET',path_parts=[_,<<"_index_query">>]}=Req, Db) ->
     SlotName = couch_httpd:qs_value(Req, "field"),
     Docs = case SlotName of
                undefined ->
-                   indexer:search(?b2l(Db#db.name), Word);
+                   indexer:search(Db#db.name, Word);
                _ ->
-                   indexer:search(?b2l(Db#db.name), Word, SlotName)
+                   indexer:search(Db#db.name, Word, SlotName)
            end,
     send_json(Req, 200, {[
             {total_rows, length(Docs)},
@@ -34,7 +34,7 @@ db_req(#httpd{method='GET',path_parts=[_,<<"_index_query">>]}=Req, Db) ->
         ]});
 
 db_req(#httpd{method='GET',path_parts=[_,<<"_index_slots">>]}=Req, Db) ->
-    Docs = indexer:get_schema(?b2l(Db#db.name)),
+    Docs = indexer:get_schema(Db#db.name),
     send_json(Req, 200, {[
             {total_rows, length(Docs)},
             {offset, 0},

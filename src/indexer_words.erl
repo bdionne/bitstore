@@ -43,8 +43,8 @@ do_indexing(Pid, Doc, EtsTrigrams) ->
 			      indexer_misc:foreach_word_in_string(
 				Str,
 				fun(W, N) ->
-					process_word(W, Index, SlotNum, SlotNam,
-						     Tab, EtsTrigrams, Pid),
+                                    process_word(W, Index, SlotNum, SlotNam,
+                                                 Tab, EtsTrigrams, Pid),
 					N+1
 				end, 0)
 

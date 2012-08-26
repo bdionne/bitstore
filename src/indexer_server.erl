@@ -16,6 +16,8 @@
 %% but still retains the original ideas from the text book
 -author('Bob Dionne').
 
+-behavior(gen_server).
+
 -export([worker/3,
 	 poll_for_changes/2,
          get_changes/1,
@@ -32,8 +34,8 @@
 	 stop/1,
          stop_scheduled/1]).
 
--export([init/1, handle_call/3, handle_cast/2, terminate/2]).
--import(filename, [join/2]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, code_change/3, terminate/2]).
+
 -include("bitstore.hrl").
 
 schedule_stop(Pid) ->
@@ -85,14 +87,14 @@ delete_db_index(Pid) ->
 
 init(DbName) ->
     Tab = indexer_trigrams:open(),
-    IndexName = binary_to_list(list_to_binary(DbName)) ++ "-idx",
+    IndexName = binary_to_list(DbName) ++ "-idx",
     DbIndexName = couch_config:get("couchdb", "database_dir", ".") ++ "/bitstore/fti/" ++ IndexName,
 
     Db = case indexer_couchdb_crawler:index_exists(DbIndexName) of
          true -> indexer_couchdb_crawler:open_index(DbIndexName);
          false ->
-             ?LOG(?DEBUG,"Starting new crawler with ~p ~p ~n",[list_to_binary(DbName), DbIndexName]),
-             [Db1, Cont] = indexer_couchdb_crawler:start(list_to_binary(DbName),[{reset, DbIndexName}]),
+             ?LOG(?DEBUG,"Starting new crawler with ~p ~p ~n",[DbName, DbIndexName]),
+             [Db1, Cont] = indexer_couchdb_crawler:start(DbName,[{reset, DbIndexName}]),
              ?LOG(?INFO, "creating checkpoint:~p~n", [Cont]),
              indexer_checkpoint:init(Db1, Cont),
              Db1
@@ -102,7 +104,7 @@ init(DbName) ->
     ?LOG(?INFO, "resuming checkpoint: ~p ~p~n",[Next, Cont1]),
 
     {ok, #env{ets=Tab,
-                      dbnam=list_to_binary(DbName),
+                      dbnam=DbName,
 	              idx_name=DbIndexName,
                       idx=Db,
                       cont=Cont1,
@@ -178,6 +180,13 @@ handle_call({delete, Key, Vals}, _From,S) ->
 
 handle_cast(stop, S) ->
     {stop, normal, S}.
+
+handle_info(_Info, State) ->
+    {noreply, State}.
+
+
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.
 
 terminate(Reason, S) ->
     indexer_couchdb_crawler:close_index(S#env.idx),
