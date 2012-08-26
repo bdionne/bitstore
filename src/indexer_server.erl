@@ -198,7 +198,7 @@ worker(Pid, WorkSoFar, PollInt) ->
             ?LOG(?INFO, "time spent indexing was ~p ~n",[Tdiff1]),
             indexer_server:checkpoint(Pid),
             ?LOG(?INFO, "indexed another ~w ~n", [length(Docs)]),
-            TotalDocs = gen_server:call(Pid, total_docs),
+            %%TotalDocs = gen_server:call(Pid, total_docs),
             WorkSoFarNew = WorkSoFar + length(Docs),
             %%couch_task_status:update("Indexed ~p of ~p changes (~p%)",
               %%                       [WorkSoFarNew, TotalDocs, (WorkSoFarNew*100) div TotalDocs]),
